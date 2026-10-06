@@ -20,3 +20,6 @@ notebooks/mlruns/
 
 # macOS
 .DS_Store
+
+# Claude Code local context
+CLAUDE.md
