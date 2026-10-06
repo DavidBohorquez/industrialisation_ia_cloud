@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Generated model files and outputs
+artifacts/
+notebooks/artifacts/
+
+# MLflow runs
+mlruns/
+notebooks/mlruns/
+
+# Secrets and local settings
+.env
+
+# macOS
+.DS_Store
