@@ -1,0 +1,4 @@
+hour,day_of_week,weekend,distance_km,order_value_eur,weight_kg,stock_available,preparation_time_min,carrier_capacity,weather,delivery_zone,customer_type
+14,2,0,3.5,89.90,2.4,1,18,0.85,normal,centre,premium
+21,6,1,28,25.00,18,0,70,0.25,orage,rurale,standard
+12,3,0,6,120,3,1,20,0.70,pluie,proche_banlieue,standard
