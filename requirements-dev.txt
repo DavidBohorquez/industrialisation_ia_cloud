@@ -1,6 +1,7 @@
 -r requirements.txt
 httpx2==2.13.1
 pytest==9.1.1
+ruff==0.17.2
 
 # Notebook d'expérimentation uniquement
 jupyter

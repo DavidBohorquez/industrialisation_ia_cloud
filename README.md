@@ -91,6 +91,7 @@ python -m livraison_express predict examples/order.json                  # one o
 python -m livraison_express predict-batch examples/orders.csv out.csv    # CSV of orders -> CSV with predictions
 python -m livraison_express.api.export_openapi                           # regenerate docs/openapi.json
 python -m pytest                                                         # run the tests
+ruff check .                                                             # lint (rules in pyproject.toml)
 ```
 
 ## Configuration
