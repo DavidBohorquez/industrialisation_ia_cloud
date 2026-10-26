@@ -26,22 +26,33 @@ Requirements: Python 3.11+.
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt        # application
+pip install -r requirements.txt        # application + API
 pip install -r requirements-dev.txt    # + tests and notebook tools
+python -m src train                    # train model MODEL_VERSION (needed once)
 ```
 
-## Usage
-
-All commands run from the project root.
+## HTTP API
 
 ```bash
-python -m src train                                         # train and save model MODEL_VERSION
-python -m src predict examples/order.json                   # one order -> JSON result
-python -m src predict-batch examples/orders.csv out.csv     # CSV of orders -> CSV with predictions
-python -m pytest                                            # run the tests
+uvicorn src.api.main:app --reload      # http://127.0.0.1:8000
 ```
 
-Example output of `predict`:
+- Swagger UI (try the endpoints in the browser): http://127.0.0.1:8000/docs
+- OpenAPI contract: http://127.0.0.1:8000/openapi.json, with a committed copy in [`docs/openapi.json`](docs/openapi.json)
+
+| Method | Path | Purpose |
+|---|---|---|
+| `POST` | `/v1/predictions` | One order -> prediction + explanation (`?explain=false` to skip it) |
+| `POST` | `/v1/predictions/batch` | `{"orders": [...]}`, up to 1000 orders (`?explain=true` to add explanations) |
+| `GET` | `/v1/model` | Loaded model: version, training date, threshold, features, metrics |
+| `GET` | `/health` | `200` when a model is loaded, `503` otherwise |
+
+Example:
+
+```bash
+curl -X POST http://127.0.0.1:8000/v1/predictions \
+     -H "Content-Type: application/json" -d @examples/order.json
+```
 
 ```json
 {
@@ -49,8 +60,34 @@ Example output of `predict`:
   "decision": "oui",
   "probability": 0.9377,
   "model_version": "1.0.0",
-  "prediction_timestamp": "2026-10-07T06:44:49.815481+00:00"
+  "prediction_timestamp": "2026-10-09T10:16:37.615812+00:00",
+  "explanation": {
+    "text": "Cette commande est éligible à la livraison express (probabilité estimée : 94 %). Ce qui joue en sa faveur : la distance (3,5 km), la capacité du transporteur (0,85) et le poids (2,4 kg).",
+    "source": "template",
+    "top_factors": ["distance_km", "carrier_capacity", "weight_kg"]
+  }
 }
+```
+
+The explanation text is generated from the model's exact contributions by a template today (`"source": "template"`). An LLM generator can replace it later without changing this contract (see ADR-0003).
+
+Errors:
+
+| Code | When | Body |
+|---|---|---|
+| `422` | Missing field, value out of range, unknown category or field, `weekend` inconsistent with `day_of_week` | Every problem at once, with field, received value and rule |
+| `413` | Batch over 1000 orders | `Batch limited to 1000 orders (received N).` |
+| `503` | No model loaded | `Prediction service temporarily unavailable: no model is loaded.` |
+| `500` | Unexpected error | Generic message + `reference`; details only in server logs |
+
+## Command line
+
+```bash
+python -m src train                                         # train and save model MODEL_VERSION
+python -m src predict examples/order.json                   # one order -> JSON result
+python -m src predict-batch examples/orders.csv out.csv     # CSV of orders -> CSV with predictions
+python -m src.api.export_openapi                            # regenerate docs/openapi.json
+python -m pytest                                            # run the tests
 ```
 
 ## Configuration
@@ -74,54 +111,47 @@ Settings come from environment variables (see `src/config.py`), so each environm
 │   ├── cli.py                        # commands train / predict / predict-batch
 │   ├── config.py                     # settings from environment variables
 │   ├── factory.py                    # picks the implementation for each abstraction
+│   ├── api/
+│   │   ├── app.py                    # FastAPI endpoints and error handling
+│   │   ├── schemas.py                # Pydantic models = OpenAPI contract
+│   │   ├── main.py                   # app instance for uvicorn
+│   │   └── export_openapi.py         # writes docs/openapi.json
 │   ├── abstractions/
 │   │   ├── model_repository.py       # ModelRepository (ABC)
-│   │   └── order_data_source.py      # OrderDataSource (ABC)
+│   │   ├── order_data_source.py      # OrderDataSource (ABC)
+│   │   └── explanation_generator.py  # ExplanationGenerator (ABC)
 │   ├── core/
-│   │   ├── domain.py                 # TrainedModel, Prediction
-│   │   ├── features.py               # feature lists and preprocessing
+│   │   ├── domain.py                 # TrainedModel, Prediction, Factor
+│   │   ├── features.py               # feature lists, categories, preprocessing
 │   │   ├── data_quality.py           # validation and cleaning
 │   │   ├── training.py               # pipeline, training, metrics
-│   │   └── predictor.py              # EligibilityPredictor (single + batch)
+│   │   ├── predictor.py              # EligibilityPredictor
+│   │   └── explanation.py            # contributions + TemplateExplanationGenerator
 │   └── infrastructure/
 │       └── dev/
 │           ├── synthetic_orders.py       # SyntheticOrderSource
 │           └── file_model_repository.py  # FileModelRepository
 ├── tests/
-├── examples/                         # sample inputs for predict / predict-batch
-├── docs/adr/                         # architecture decision records
+├── examples/                         # sample inputs
+├── docs/
+│   ├── adr/                          # architecture decision records
+│   └── openapi.json                  # API contract (generated)
 └── notebooks/                        # original experiment (reference only)
 ```
 
 ## Architecture
 
-Business code (`core/`) depends only on abstractions. The environment-specific classes live in `infrastructure/`, and `factory.py` is the only place that connects the two (dependency inversion, the "D" in SOLID).
+Business code (`core/`) depends only on abstractions. Entry points (CLI, API) and environment-specific classes (`infrastructure/`) are connected in one place, `factory.py` (dependency inversion, the "D" in SOLID).
 
-```mermaid
-classDiagram
-    class OrderDataSource {
-        <<abstract>>
-        +load_orders() DataFrame
-    }
-    class ModelRepository {
-        <<abstract>>
-        +save(model)
-        +load(version) TrainedModel
-    }
-    class SyntheticOrderSource
-    class FileModelRepository
-    class run_training {
-        <<function>>
-    }
-    class EligibilityPredictor {
-        +predict_one(order) Prediction
-        +predict_batch(orders) DataFrame
-    }
-    OrderDataSource <|-- SyntheticOrderSource
-    ModelRepository <|-- FileModelRepository
-    run_training ..> OrderDataSource : reads orders
-    run_training ..> ModelRepository : saves model
-    EligibilityPredictor ..> TrainedModel : uses
+```
+  terminal ──> cli.py ───────┐
+                             ├──> factory.py ──> core/ (predictor, training, explanation)
+  HTTP ──────> api/ ─────────┘                      │
+               (Pydantic, OpenAPI)                  v
+                                       abstractions/ (ABC contracts)
+                                                    ^
+                                                    │ implemented by
+                          infrastructure/dev/  +  core/explanation.py (template)
 ```
 
 Decisions are recorded in `docs/adr/`:
@@ -129,6 +159,7 @@ Decisions are recorded in `docs/adr/`:
 - [ADR-0000](docs/adr/0000-model-artifact-storage.md): model artifacts in a local directory, one folder per version
 - [ADR-0001](docs/adr/0001-order-data-source.md): training data source abstracted per environment
 - [ADR-0002](docs/adr/0002-notebook-scope.md): which notebook code goes into the application
+- [ADR-0003](docs/adr/0003-http-api.md): HTTP API, OpenAPI contract and explanations
 
 ## Status
 
@@ -137,8 +168,10 @@ Decisions are recorded in `docs/adr/`:
 - [x] Notebook logic moved into `src/`
 - [x] Model repository (abstraction + local file implementation)
 - [x] Tests
+- [x] Prediction API with OpenAPI contract
+- [x] Template explanation (LLM-ready abstraction)
+- [ ] LLM explanation generator
 - [ ] Production data source and environment
-- [ ] Prediction API
 - [ ] MLflow tracking
 - [ ] CI/CD and deployment
 
@@ -146,4 +179,4 @@ Decisions are recorded in `docs/adr/`:
 
 - The dataset is synthetic; performance on real data may differ.
 - The model is a decision aid and must not replace business rules.
-- Input values are only checked for presence at prediction time; range checks will come with the API.
+- Explanations describe each feature's effect compared with an average order; they explain the model, not the real-world cause.

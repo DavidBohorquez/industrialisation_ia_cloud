@@ -1,0 +1,592 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Express Delivery Eligibility API",
+    "description": "Predicts whether an order can be delivered express (same day). Decision aid only: it does not replace business rules.",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "monitoring"
+        ],
+        "summary": "Health",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "No model is loaded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/model": {
+      "get": {
+        "tags": [
+          "model"
+        ],
+        "summary": "Model Info",
+        "operationId": "model_info_v1_model_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelInfoResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "No model is loaded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/predictions": {
+      "post": {
+        "tags": [
+          "predictions"
+        ],
+        "summary": "Predict",
+        "operationId": "predict_v1_predictions_post",
+        "parameters": [
+          {
+            "name": "explain",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true,
+              "title": "Explain"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrderRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PredictionResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "No model is loaded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/predictions/batch": {
+      "post": {
+        "tags": [
+          "predictions"
+        ],
+        "summary": "Predict Batch",
+        "operationId": "predict_batch_v1_predictions_batch_post",
+        "parameters": [
+          {
+            "name": "explain",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Explain"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BatchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "More than 1000 orders.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "No model is loaded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "BatchRequest": {
+        "properties": {
+          "orders": {
+            "items": {
+              "$ref": "#/components/schemas/OrderRequest"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Orders"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "orders"
+        ],
+        "title": "BatchRequest"
+      },
+      "BatchResponse": {
+        "properties": {
+          "predictions": {
+            "items": {
+              "$ref": "#/components/schemas/PredictionResponse"
+            },
+            "type": "array",
+            "title": "Predictions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "predictions"
+        ],
+        "title": "BatchResponse"
+      },
+      "ErrorResponse": {
+        "properties": {
+          "detail": {
+            "type": "string",
+            "title": "Detail"
+          },
+          "reference": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference"
+          }
+        },
+        "type": "object",
+        "required": [
+          "detail"
+        ],
+        "title": "ErrorResponse"
+      },
+      "Explanation": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source",
+            "description": "\"template\" today; \"llm\" once an LLM generator is plugged in."
+          },
+          "top_factors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Top Factors",
+            "description": "Features that weighed most on this decision."
+          }
+        },
+        "type": "object",
+        "required": [
+          "text",
+          "source",
+          "top_factors"
+        ],
+        "title": "Explanation"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "HealthResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "unavailable"
+            ],
+            "title": "Status"
+          },
+          "model_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "model_version"
+        ],
+        "title": "HealthResponse"
+      },
+      "ModelInfoResponse": {
+        "properties": {
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "trained_at": {
+            "type": "string",
+            "title": "Trained At"
+          },
+          "decision_threshold": {
+            "type": "number",
+            "title": "Decision Threshold"
+          },
+          "features": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Features"
+          },
+          "metrics": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Metrics"
+          }
+        },
+        "type": "object",
+        "required": [
+          "version",
+          "trained_at",
+          "decision_threshold",
+          "features",
+          "metrics"
+        ],
+        "title": "ModelInfoResponse"
+      },
+      "OrderRequest": {
+        "properties": {
+          "hour": {
+            "type": "integer",
+            "maximum": 23.0,
+            "minimum": 0.0,
+            "title": "Hour",
+            "description": "Hour the order was placed (0-23)."
+          },
+          "day_of_week": {
+            "type": "integer",
+            "maximum": 6.0,
+            "minimum": 0.0,
+            "title": "Day Of Week",
+            "description": "0 = Monday ... 6 = Sunday."
+          },
+          "weekend": {
+            "type": "integer",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Weekend",
+            "description": "1 if day_of_week is 5 or 6, otherwise 0."
+          },
+          "distance_km": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Distance Km",
+            "description": "Delivery distance in kilometres."
+          },
+          "order_value_eur": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Order Value Eur",
+            "description": "Order amount in euros."
+          },
+          "weight_kg": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Weight Kg",
+            "description": "Parcel weight in kilograms."
+          },
+          "stock_available": {
+            "type": "integer",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Stock Available",
+            "description": "1 if every item is in stock."
+          },
+          "preparation_time_min": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Preparation Time Min",
+            "description": "Estimated preparation time in minutes."
+          },
+          "carrier_capacity": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Carrier Capacity",
+            "description": "Share of carrier capacity still free (0-1)."
+          },
+          "weather": {
+            "type": "string",
+            "enum": [
+              "normal",
+              "pluie",
+              "neige",
+              "orage"
+            ],
+            "title": "Weather"
+          },
+          "delivery_zone": {
+            "type": "string",
+            "enum": [
+              "centre",
+              "proche_banlieue",
+              "banlieue",
+              "rurale"
+            ],
+            "title": "Delivery Zone"
+          },
+          "customer_type": {
+            "type": "string",
+            "enum": [
+              "standard",
+              "premium"
+            ],
+            "title": "Customer Type"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "hour",
+          "day_of_week",
+          "weekend",
+          "distance_km",
+          "order_value_eur",
+          "weight_kg",
+          "stock_available",
+          "preparation_time_min",
+          "carrier_capacity",
+          "weather",
+          "delivery_zone",
+          "customer_type"
+        ],
+        "title": "OrderRequest",
+        "examples": [
+          {
+            "carrier_capacity": 0.85,
+            "customer_type": "premium",
+            "day_of_week": 2,
+            "delivery_zone": "centre",
+            "distance_km": 3.5,
+            "hour": 14,
+            "order_value_eur": 89.9,
+            "preparation_time_min": 18,
+            "stock_available": 1,
+            "weather": "normal",
+            "weekend": 0,
+            "weight_kg": 2.4
+          }
+        ]
+      },
+      "PredictionResponse": {
+        "properties": {
+          "express_eligible": {
+            "type": "boolean",
+            "title": "Express Eligible"
+          },
+          "decision": {
+            "type": "string",
+            "enum": [
+              "oui",
+              "non"
+            ],
+            "title": "Decision"
+          },
+          "probability": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Probability"
+          },
+          "model_version": {
+            "type": "string",
+            "title": "Model Version"
+          },
+          "prediction_timestamp": {
+            "type": "string",
+            "title": "Prediction Timestamp"
+          },
+          "explanation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Explanation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "express_eligible",
+          "decision",
+          "probability",
+          "model_version",
+          "prediction_timestamp"
+        ],
+        "title": "PredictionResponse"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}

@@ -1,9 +1,15 @@
+from typing import Literal
+
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 TARGET_COLUMN = "express_eligible"
+
+Weather = Literal["normal", "pluie", "neige", "orage"]
+DeliveryZone = Literal["centre", "proche_banlieue", "banlieue", "rurale"]
+CustomerType = Literal["standard", "premium"]
 
 NUMERIC_FEATURES = [
     "hour",

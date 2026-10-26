@@ -45,3 +45,15 @@ def test_batch_matches_single_predictions(trained_model, valid_order):
         predictor.predict_one(other_order).decision,
     ]
     assert batch["eligibility_probability"].between(0, 1).all()
+
+
+def test_predict_many_matches_predict_one(trained_model, valid_order):
+    predictor = EligibilityPredictor(trained_model)
+    other_order = {**valid_order, "distance_km": 30, "stock_available": 0}
+
+    many = predictor.predict_many([valid_order, other_order])
+
+    assert [p.probability for p in many] == [
+        predictor.predict_one(valid_order).probability,
+        predictor.predict_one(other_order).probability,
+    ]

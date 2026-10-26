@@ -1,7 +1,10 @@
+from typing import get_args
+
 import numpy as np
 import pandas as pd
 
 from src.abstractions.order_data_source import OrderDataSource
+from src.core.features import CustomerType, DeliveryZone, Weather
 
 ZONE_PENALTY = {
     "centre": 0,
@@ -50,17 +53,17 @@ class SyntheticOrderSource(OrderDataSource):
             ),
             "carrier_capacity": np.round(rng.uniform(0.2, 1.0, size=n_rows), 2),
             "weather": rng.choice(
-                ["normal", "pluie", "neige", "orage"],
+                list(get_args(Weather)),
                 size=n_rows,
                 p=[0.65, 0.20, 0.10, 0.05],
             ),
             "delivery_zone": rng.choice(
-                ["centre", "proche_banlieue", "banlieue", "rurale"],
+                list(get_args(DeliveryZone)),
                 size=n_rows,
                 p=[0.30, 0.30, 0.25, 0.15],
             ),
             "customer_type": rng.choice(
-                ["standard", "premium"],
+                list(get_args(CustomerType)),
                 size=n_rows,
                 p=[0.80, 0.20],
             ),

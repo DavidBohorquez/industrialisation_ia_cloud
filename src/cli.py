@@ -6,9 +6,8 @@ from pathlib import Path
 import pandas as pd
 
 from src.config import Settings, load_settings
-from src.core.predictor import EligibilityPredictor
 from src.core.training import run_training
-from src.factory import build_model_repository, build_order_source
+from src.factory import build_model_repository, build_order_source, build_predictor
 
 
 def train(settings: Settings) -> None:
@@ -30,20 +29,15 @@ def predict(settings: Settings, order_file: Path) -> None:
     if not isinstance(order, dict):
         raise ValueError("Le fichier doit contenir un objet JSON décrivant une commande.")
 
-    prediction = _load_predictor(settings).predict_one(order)
+    prediction = build_predictor(settings).predict_one(order)
     print(json.dumps(prediction.to_dict(), indent=2, ensure_ascii=False))
 
 
 def predict_batch(settings: Settings, input_file: Path, output_file: Path) -> None:
-    predictions = _load_predictor(settings).predict_batch(pd.read_csv(input_file))
+    predictions = build_predictor(settings).predict_batch(pd.read_csv(input_file))
     predictions.to_csv(output_file, index=False)
 
     print(f"{len(predictions)} prédictions enregistrées dans {output_file}.")
-
-
-def _load_predictor(settings: Settings) -> EligibilityPredictor:
-    model = build_model_repository(settings).load(settings.model_version)
-    return EligibilityPredictor(model, threshold=settings.decision_threshold)
 
 
 def _build_parser() -> argparse.ArgumentParser:
