@@ -40,7 +40,7 @@ class EligibilityPredictor:
                 express_eligible=bool(probability >= self._threshold),
                 decision=ELIGIBLE if probability >= self._threshold else NOT_ELIGIBLE,
                 probability=round(float(probability), 4),
-                model_version=self._model.version,
+                model_version=self._model.card.model_version,
                 prediction_timestamp=timestamp,
             )
             for probability in probabilities
@@ -56,7 +56,7 @@ class EligibilityPredictor:
         result["eligibility_probability"] = probabilities.round(4)
         result["express_eligible"] = eligible.astype(int)
         result["decision"] = np.where(eligible, ELIGIBLE, NOT_ELIGIBLE)
-        result["model_version"] = self._model.version
+        result["model_version"] = self._model.card.model_version
 
         return result
 
@@ -69,14 +69,14 @@ class EligibilityPredictor:
             self._check_features(order.keys())
 
         return pd.DataFrame(
-            [{feature: order[feature] for feature in self._model.features} for order in orders]
+            [{feature: order[feature] for feature in self._model.card.features} for order in orders]
         )
 
     def _check_features(self, available: Iterable[str]) -> None:
-        missing_features = set(self._model.features) - set(available)
+        missing_features = set(self._model.card.features) - set(available)
 
         if missing_features:
             raise ValueError(f"Variables manquantes : {sorted(missing_features)}")
 
     def _probabilities(self, data: pd.DataFrame) -> np.ndarray:
-        return self._model.pipeline.predict_proba(data[self._model.features])[:, 1]
+        return self._model.pipeline.predict_proba(data[self._model.card.features])[:, 1]

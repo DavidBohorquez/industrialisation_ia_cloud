@@ -127,7 +127,7 @@ Settings are read by `src/livraison_express/config.py` (`pydantic-settings`), in
 │   │   ├── order_data_source.py      # OrderDataSource (ABC)
 │   │   └── explanation_generator.py  # ExplanationGenerator (ABC)
 │   ├── core/
-│   │   ├── domain.py                 # TrainedModel, Prediction, Factor
+│   │   ├── domain.py                 # TrainedModel, ModelEntity (model card), Prediction, Factor
 │   │   ├── features.py               # feature lists, categories, preprocessing
 │   │   ├── data_quality.py           # validation and cleaning
 │   │   ├── training.py               # pipeline, training, metrics

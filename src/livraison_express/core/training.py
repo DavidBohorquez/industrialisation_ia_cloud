@@ -15,8 +15,17 @@ from sklearn.pipeline import Pipeline
 from livraison_express.abstractions.model_repository import ModelRepository
 from livraison_express.abstractions.order_data_source import OrderDataSource
 from livraison_express.core.data_quality import clean_orders_data, validate_dataset
-from livraison_express.core.domain import TrainedModel
+from livraison_express.core.domain import ModelEntity, TrainedModel
 from livraison_express.core.features import FEATURE_COLUMNS, TARGET_COLUMN, build_preprocessor
+
+PROJECT_NAME = "eligibilite-livraison-express"
+
+LIMITATIONS = (
+    "Le jeu de données d'entraînement est synthétique.",
+    "La décision ne doit pas être utilisée sans validation des règles métier.",
+    "Les performances peuvent varier sur des données réelles.",
+    "Le modèle ne remplace pas une analyse des contraintes opérationnelles.",
+)
 
 
 def build_pipeline(random_state: int) -> Pipeline:
@@ -33,9 +42,15 @@ def build_pipeline(random_state: int) -> Pipeline:
     )
 
 
-def evaluate(pipeline: Pipeline, X_test: pd.DataFrame, y_test: pd.Series) -> dict[str, float]:
-    y_pred = pipeline.predict(X_test)
+def evaluate(
+    pipeline: Pipeline,
+    X_test: pd.DataFrame,
+    y_test: pd.Series,
+    threshold: float,
+) -> dict[str, float]:
+    # Precision, recall, F1 and accuracy depend on the threshold; ROC AUC does not.
     y_proba = pipeline.predict_proba(X_test)[:, 1]
+    y_pred = (y_proba >= threshold).astype(int)
 
     return {
         "accuracy": float(accuracy_score(y_test, y_pred)),
@@ -50,6 +65,7 @@ def train_model(
     orders: pd.DataFrame,
     version: str,
     random_state: int,
+    evaluation_threshold: float,
     test_size: float = 0.20,
 ) -> TrainedModel:
     X_train, X_test, y_train, y_test = train_test_split(
@@ -63,13 +79,19 @@ def train_model(
     pipeline = build_pipeline(random_state)
     pipeline.fit(X_train, y_train)
 
-    return TrainedModel(
-        pipeline=pipeline,
-        version=version,
+    card = ModelEntity(
+        project=PROJECT_NAME,
+        model_version=version,
+        model_type=type(pipeline.named_steps["classifier"]).__name__,
+        task="classification binaire",
+        target=TARGET_COLUMN,
         features=list(FEATURE_COLUMNS),
-        metrics=evaluate(pipeline, X_test, y_test),
+        metrics=evaluate(pipeline, X_test, y_test, evaluation_threshold),
+        evaluation_threshold=evaluation_threshold,
         trained_at=datetime.now(timezone.utc).isoformat(),
+        limitations=list(LIMITATIONS),
     )
+    return TrainedModel(pipeline=pipeline, card=card)
 
 
 def run_training(
@@ -77,11 +99,12 @@ def run_training(
     repository: ModelRepository,
     version: str,
     random_state: int,
+    evaluation_threshold: float,
 ) -> TrainedModel:
     orders = clean_orders_data(source.load_orders())
     validate_dataset(orders)
 
-    model = train_model(orders, version, random_state)
+    model = train_model(orders, version, random_state, evaluation_threshold)
     repository.save(model)
 
     return model

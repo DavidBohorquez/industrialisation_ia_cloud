@@ -343,9 +343,25 @@
       },
       "ModelInfoResponse": {
         "properties": {
+          "project": {
+            "type": "string",
+            "title": "Project"
+          },
           "version": {
             "type": "string",
             "title": "Version"
+          },
+          "model_type": {
+            "type": "string",
+            "title": "Model Type"
+          },
+          "task": {
+            "type": "string",
+            "title": "Task"
+          },
+          "target": {
+            "type": "string",
+            "title": "Target"
           },
           "trained_at": {
             "type": "string",
@@ -353,7 +369,13 @@
           },
           "decision_threshold": {
             "type": "number",
-            "title": "Decision Threshold"
+            "title": "Decision Threshold",
+            "description": "Threshold the service applies now (DECISION_THRESHOLD)."
+          },
+          "evaluation_threshold": {
+            "type": "number",
+            "title": "Evaluation Threshold",
+            "description": "Threshold used to compute the metrics at training."
           },
           "features": {
             "items": {
@@ -368,15 +390,28 @@
             },
             "type": "object",
             "title": "Metrics"
+          },
+          "limitations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Limitations"
           }
         },
         "type": "object",
         "required": [
+          "project",
           "version",
+          "model_type",
+          "task",
+          "target",
           "trained_at",
           "decision_threshold",
+          "evaluation_threshold",
           "features",
-          "metrics"
+          "metrics",
+          "limitations"
         ],
         "title": "ModelInfoResponse"
       },

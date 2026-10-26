@@ -20,10 +20,12 @@ def train(settings: Settings) -> None:
         repository=build_model_repository(settings),
         version=settings.model_version,
         random_state=settings.random_state,
+        evaluation_threshold=settings.decision_threshold,
     )
 
-    logger.info("Modèle %s entraîné et enregistré dans %s.", model.version, settings.artifacts_dir)
-    for metric_name, metric_value in model.metrics.items():
+    card = model.card
+    logger.info("Modèle %s entraîné et enregistré dans %s.", card.model_version, settings.artifacts_dir)
+    for metric_name, metric_value in card.metrics.items():
         logger.info("%10s : %.4f", metric_name, metric_value)
 
 

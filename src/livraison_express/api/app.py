@@ -96,17 +96,24 @@ def create_app(
         if predictor is None:
             response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
             return ReadinessResponse(status="not_ready", model_version=None)
-        return ReadinessResponse(status="ready", model_version=predictor.model.version)
+        return ReadinessResponse(status="ready", model_version=predictor.model.card.model_version)
 
     @app.get("/v1/model", response_model=ModelInfoResponse, responses=UNAVAILABLE, tags=["model"])
     def model_info() -> ModelInfoResponse:
         current = require_predictor()
+        card = current.model.card
         return ModelInfoResponse(
-            version=current.model.version,
-            trained_at=current.model.trained_at,
+            project=card.project,
+            version=card.model_version,
+            model_type=card.model_type,
+            task=card.task,
+            target=card.target,
+            trained_at=card.trained_at,
             decision_threshold=current.threshold,
-            features=current.model.features,
-            metrics=current.model.metrics,
+            evaluation_threshold=card.evaluation_threshold,
+            features=card.features,
+            metrics=card.metrics,
+            limitations=card.limitations,
         )
 
     @app.post(

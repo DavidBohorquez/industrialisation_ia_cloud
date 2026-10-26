@@ -120,8 +120,12 @@ def test_liveness_stays_200_without_model(client_without_model):
 def test_model_info(client):
     info = client.get("/v1/model").json()
     assert info["version"] == "test"
+    assert info["model_type"] == "LogisticRegression"
+    assert info["target"] == "express_eligible"
     assert info["decision_threshold"] == 0.5
+    assert info["evaluation_threshold"] == 0.5
     assert "roc_auc" in info["metrics"]
+    assert info["limitations"]
 
 
 def test_without_model_every_service_endpoint_reports_503(client_without_model, valid_order):

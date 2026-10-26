@@ -10,12 +10,25 @@ class Classifier(Protocol):
 
 
 @dataclass(frozen=True)
-class TrainedModel:
-    pipeline: Classifier
-    version: str
+class ModelEntity:
+    """Model card: what a trained model is, how it was evaluated and where it must not be trusted."""
+
+    project: str
+    model_version: str
+    model_type: str
+    task: str
+    target: str
     features: list[str]
     metrics: dict[str, float]
+    evaluation_threshold: float
     trained_at: str
+    limitations: list[str]
+
+
+@dataclass(frozen=True)
+class TrainedModel:
+    pipeline: Classifier
+    card: ModelEntity
 
 
 @dataclass(frozen=True)

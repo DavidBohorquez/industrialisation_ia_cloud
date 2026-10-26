@@ -80,11 +80,17 @@ class ReadinessResponse(BaseModel):
 
 
 class ModelInfoResponse(BaseModel):
+    project: str
     version: str
+    model_type: str
+    task: str
+    target: str
     trained_at: str
-    decision_threshold: float
+    decision_threshold: float = Field(description="Threshold the service applies now (DECISION_THRESHOLD).")
+    evaluation_threshold: float = Field(description="Threshold used to compute the metrics at training.")
     features: list[str]
     metrics: dict[str, float]
+    limitations: list[str]
 
 
 class ErrorResponse(BaseModel):

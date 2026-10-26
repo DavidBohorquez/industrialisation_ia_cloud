@@ -11,7 +11,7 @@ def orders():
 
 @pytest.fixture(scope="session")
 def trained_model(orders):
-    return train_model(orders, version="test", random_state=0)
+    return train_model(orders, version="test", random_state=0, evaluation_threshold=0.5)
 
 
 @pytest.fixture
