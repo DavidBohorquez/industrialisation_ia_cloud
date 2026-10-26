@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from src.core.domain import TrainedModel
+from livraison_express.core.domain import TrainedModel
 
 
 class ModelRepository(ABC):

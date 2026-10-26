@@ -5,8 +5,8 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from src.core.domain import Factor, Prediction, TrainedModel
-from src.core.explanation import linear_contributions
+from livraison_express.core.domain import Factor, Prediction, TrainedModel
+from livraison_express.core.explanation import linear_contributions
 
 ELIGIBLE = "oui"
 NOT_ELIGIBLE = "non"

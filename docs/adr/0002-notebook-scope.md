@@ -11,11 +11,11 @@ The notebook mixes code the final client needs (validation, cleaning, training, 
 
 | Notebook part | Destination |
 |---|---|
-| Data generation | `src/infrastructure/dev/synthetic_orders.py` (dev data source) |
-| Quality checks and cleaning | `src/core/data_quality.py` |
-| Feature lists and preprocessing | `src/core/features.py` |
-| Pipeline, split, training, metrics | `src/core/training.py` |
-| Threshold, single, batch and "real-time" prediction | `src/core/predictor.py` (one class, no duplicated logic) |
+| Data generation | `src/livraison_express/infrastructure/dev/synthetic_orders.py` (dev data source) |
+| Quality checks and cleaning | `src/livraison_express/core/data_quality.py` |
+| Feature lists and preprocessing | `src/livraison_express/core/features.py` |
+| Pipeline, split, training, metrics | `src/livraison_express/core/training.py` |
+| Threshold, single, batch and "real-time" prediction | `src/livraison_express/core/predictor.py` (one class, no duplicated logic) |
 | Model saving and reloading | `ModelRepository` + `FileModelRepository` |
 | Prediction tests and bad-data simulation | `tests/` |
 | Example orders | `examples/` |

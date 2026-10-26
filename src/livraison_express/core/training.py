@@ -12,11 +12,11 @@ from sklearn.metrics import (
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 
-from src.abstractions.model_repository import ModelRepository
-from src.abstractions.order_data_source import OrderDataSource
-from src.core.data_quality import clean_orders_data, validate_dataset
-from src.core.domain import TrainedModel
-from src.core.features import FEATURE_COLUMNS, TARGET_COLUMN, build_preprocessor
+from livraison_express.abstractions.model_repository import ModelRepository
+from livraison_express.abstractions.order_data_source import OrderDataSource
+from livraison_express.core.data_quality import clean_orders_data, validate_dataset
+from livraison_express.core.domain import TrainedModel
+from livraison_express.core.features import FEATURE_COLUMNS, TARGET_COLUMN, build_preprocessor
 
 
 def build_pipeline(random_state: int) -> Pipeline:

@@ -4,9 +4,9 @@ from typing import Any
 import pandas as pd
 from sklearn.pipeline import Pipeline
 
-from src.abstractions.explanation_generator import ExplanationGenerator
-from src.core.domain import Factor, Prediction
-from src.core.features import CATEGORICAL_FEATURES, NUMERIC_FEATURES
+from livraison_express.abstractions.explanation_generator import ExplanationGenerator
+from livraison_express.core.domain import Factor, Prediction
+from livraison_express.core.features import CATEGORICAL_FEATURES, NUMERIC_FEATURES
 
 FEATURE_LABELS = {
     "hour": "l'heure de commande",

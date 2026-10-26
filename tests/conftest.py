@@ -1,7 +1,7 @@
 import pytest
 
-from src.core.training import train_model
-from src.infrastructure.dev.synthetic_orders import SyntheticOrderSource
+from livraison_express.core.training import train_model
+from livraison_express.infrastructure.dev.synthetic_orders import SyntheticOrderSource
 
 
 @pytest.fixture(scope="session")

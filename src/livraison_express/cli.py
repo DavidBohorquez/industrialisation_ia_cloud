@@ -5,9 +5,9 @@ from pathlib import Path
 
 import pandas as pd
 
-from src.config import Settings, load_settings
-from src.core.training import run_training
-from src.factory import build_model_repository, build_order_source, build_predictor
+from livraison_express.config import Settings, load_settings
+from livraison_express.core.training import run_training
+from livraison_express.factory import build_model_repository, build_order_source, build_predictor
 
 
 def train(settings: Settings) -> None:
@@ -42,7 +42,7 @@ def predict_batch(settings: Settings, input_file: Path, output_file: Path) -> No
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="python -m src",
+        prog="python -m livraison_express",
         description="Éligibilité d'une commande à la livraison express.",
     )
     commands = parser.add_subparsers(dest="command", required=True)

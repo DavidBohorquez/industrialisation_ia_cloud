@@ -2,7 +2,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from src.core.features import CustomerType, DeliveryZone, Weather
+from livraison_express.core.features import CustomerType, DeliveryZone, Weather
 
 EXAMPLE_ORDER = {
     "hour": 14,

@@ -1,9 +1,9 @@
 import pandas as pd
 
-from src.abstractions.model_repository import ModelRepository
-from src.abstractions.order_data_source import OrderDataSource
-from src.core.domain import TrainedModel
-from src.core.training import run_training
+from livraison_express.abstractions.model_repository import ModelRepository
+from livraison_express.abstractions.order_data_source import OrderDataSource
+from livraison_express.core.domain import TrainedModel
+from livraison_express.core.training import run_training
 
 
 class InMemoryOrderSource(OrderDataSource):

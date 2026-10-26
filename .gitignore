@@ -3,6 +3,11 @@ __pycache__/
 *.pyc
 .venv/
 venv/
+*.egg-info/
+
+# Test and lint caches
+.pytest_cache/
+.ruff_cache/
 
 # Jupyter
 .ipynb_checkpoints/

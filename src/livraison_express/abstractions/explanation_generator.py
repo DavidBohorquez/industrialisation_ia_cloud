@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from typing import Any
 
-from src.core.domain import Factor, Prediction
+from livraison_express.core.domain import Factor, Prediction
 
 
 class ExplanationGenerator(ABC):

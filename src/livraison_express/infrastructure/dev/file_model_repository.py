@@ -3,8 +3,8 @@ from pathlib import Path
 
 import joblib
 
-from src.abstractions.model_repository import ModelRepository
-from src.core.domain import TrainedModel
+from livraison_express.abstractions.model_repository import ModelRepository
+from livraison_express.core.domain import TrainedModel
 
 MODEL_FILE = "model.joblib"
 METADATA_FILE = "metadata.json"

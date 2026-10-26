@@ -1,7 +1,7 @@
 import pytest
 
-from src.core.predictor import EligibilityPredictor
-from src.infrastructure.dev.file_model_repository import FileModelRepository
+from livraison_express.core.predictor import EligibilityPredictor
+from livraison_express.infrastructure.dev.file_model_repository import FileModelRepository
 
 
 def test_saved_model_reloads_with_same_predictions(tmp_path, trained_model, valid_order):

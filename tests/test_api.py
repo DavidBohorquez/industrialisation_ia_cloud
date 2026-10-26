@@ -1,9 +1,9 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from src.api.app import MAX_BATCH_SIZE, create_app
-from src.core.explanation import TemplateExplanationGenerator
-from src.core.predictor import EligibilityPredictor
+from livraison_express.api.app import MAX_BATCH_SIZE, create_app
+from livraison_express.core.explanation import TemplateExplanationGenerator
+from livraison_express.core.predictor import EligibilityPredictor
 
 
 @pytest.fixture
@@ -142,8 +142,8 @@ def test_openapi_contract_lists_the_endpoints(client):
 
 
 def test_committed_openapi_file_is_up_to_date():
-    from src.api.export_openapi import OPENAPI_FILE, render_openapi
+    from livraison_express.api.export_openapi import OPENAPI_FILE, render_openapi
 
     assert OPENAPI_FILE.read_text(encoding="utf-8") == render_openapi(), (
-        "docs/openapi.json is outdated: run python -m src.api.export_openapi"
+        "docs/openapi.json is outdated: run python -m livraison_express.api.export_openapi"
     )

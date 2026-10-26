@@ -2,10 +2,10 @@ import math
 
 import pandas as pd
 
-from src.core.domain import Factor, Prediction
-from src.core.explanation import TemplateExplanationGenerator, linear_contributions
-from src.core.features import FEATURE_COLUMNS
-from src.core.predictor import EligibilityPredictor
+from livraison_express.core.domain import Factor, Prediction
+from livraison_express.core.explanation import TemplateExplanationGenerator, linear_contributions
+from livraison_express.core.features import FEATURE_COLUMNS
+from livraison_express.core.predictor import EligibilityPredictor
 
 
 def make_prediction(eligible: bool, probability: float) -> Prediction:

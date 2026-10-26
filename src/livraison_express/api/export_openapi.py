@@ -1,9 +1,9 @@
 import json
 from pathlib import Path
 
-from src.api.app import create_app
-from src.config import PROJECT_ROOT
-from src.core.explanation import TemplateExplanationGenerator
+from livraison_express.api.app import create_app
+from livraison_express.config import PROJECT_ROOT
+from livraison_express.core.explanation import TemplateExplanationGenerator
 
 OPENAPI_FILE = PROJECT_ROOT / "docs" / "openapi.json"
 

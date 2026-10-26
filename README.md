@@ -21,20 +21,20 @@ Features used by the model:
 
 ## Getting started
 
-Requirements: Python 3.11+.
+Requirements: Python 3.13+.
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt        # application + API
-pip install -r requirements-dev.txt    # + tests and notebook tools
-python -m src train                    # train model MODEL_VERSION (needed once)
+pip install -r requirements-dev.txt    # tests and notebook tools (includes requirements.txt)
+pip install -e .                       # installs the livraison_express package in editable mode
+python -m livraison_express train      # train model MODEL_VERSION (needed once)
 ```
 
 ## HTTP API
 
 ```bash
-uvicorn src.api.main:app --reload      # http://127.0.0.1:8000
+uvicorn livraison_express.api.main:app --reload      # http://127.0.0.1:8000
 ```
 
 - Swagger UI (try the endpoints in the browser): http://127.0.0.1:8000/docs
@@ -83,20 +83,20 @@ Errors:
 ## Command line
 
 ```bash
-python -m src train                                         # train and save model MODEL_VERSION
-python -m src predict examples/order.json                   # one order -> JSON result
-python -m src predict-batch examples/orders.csv out.csv     # CSV of orders -> CSV with predictions
-python -m src.api.export_openapi                            # regenerate docs/openapi.json
+python -m livraison_express train                                         # train and save model MODEL_VERSION
+python -m livraison_express predict examples/order.json                   # one order -> JSON result
+python -m livraison_express predict-batch examples/orders.csv out.csv     # CSV of orders -> CSV with predictions
+python -m livraison_express.api.export_openapi                            # regenerate docs/openapi.json
 python -m pytest                                            # run the tests
 ```
 
 ## Configuration
 
-Settings come from environment variables (see `src/config.py`), so each environment can differ without code changes.
+Settings come from environment variables (see `src/livraison_express/config.py`), so each environment can differ without code changes.
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `APP_ENV` | `dev` | Selects the implementations in `src/factory.py` |
+| `APP_ENV` | `dev` | Selects the implementations in `src/livraison_express/factory.py` |
 | `ARTIFACTS_DIR` | `<project>/artifacts` | Where model versions are stored |
 | `MODEL_VERSION` | `1.0.0` | Version to train (must be new) or to load |
 | `DECISION_THRESHOLD` | `0.5` | Probability from which an order is eligible |
@@ -106,8 +106,9 @@ Settings come from environment variables (see `src/config.py`), so each environm
 
 ```
 .
-├── src/
-│   ├── __main__.py                   # entry point: python -m src
+├── pyproject.toml                    # package definition (pip install -e .)
+├── src/livraison_express/
+│   ├── __main__.py                   # entry point: python -m livraison_express
 │   ├── cli.py                        # commands train / predict / predict-batch
 │   ├── config.py                     # settings from environment variables
 │   ├── factory.py                    # picks the implementation for each abstraction

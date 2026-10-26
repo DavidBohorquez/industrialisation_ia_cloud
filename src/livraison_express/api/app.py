@@ -6,8 +6,8 @@ from typing import Any
 from fastapi import FastAPI, HTTPException, Request, Response, status
 from fastapi.responses import JSONResponse
 
-from src.abstractions.explanation_generator import ExplanationGenerator
-from src.api.schemas import (
+from livraison_express.abstractions.explanation_generator import ExplanationGenerator
+from livraison_express.api.schemas import (
     BatchRequest,
     BatchResponse,
     ErrorResponse,
@@ -17,8 +17,8 @@ from src.api.schemas import (
     OrderRequest,
     PredictionResponse,
 )
-from src.core.domain import Prediction
-from src.core.predictor import EligibilityPredictor
+from livraison_express.core.domain import Prediction
+from livraison_express.core.predictor import EligibilityPredictor
 
 API_VERSION = "1.0.0"
 MAX_BATCH_SIZE = 1000

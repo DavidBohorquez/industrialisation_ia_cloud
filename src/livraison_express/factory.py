@@ -1,11 +1,11 @@
-from src.abstractions.explanation_generator import ExplanationGenerator
-from src.abstractions.model_repository import ModelRepository
-from src.abstractions.order_data_source import OrderDataSource
-from src.config import Settings
-from src.core.explanation import TemplateExplanationGenerator
-from src.core.predictor import EligibilityPredictor
-from src.infrastructure.dev.file_model_repository import FileModelRepository
-from src.infrastructure.dev.synthetic_orders import SyntheticOrderSource
+from livraison_express.abstractions.explanation_generator import ExplanationGenerator
+from livraison_express.abstractions.model_repository import ModelRepository
+from livraison_express.abstractions.order_data_source import OrderDataSource
+from livraison_express.config import Settings
+from livraison_express.core.explanation import TemplateExplanationGenerator
+from livraison_express.core.predictor import EligibilityPredictor
+from livraison_express.infrastructure.dev.file_model_repository import FileModelRepository
+from livraison_express.infrastructure.dev.synthetic_orders import SyntheticOrderSource
 
 
 def build_order_source(settings: Settings) -> OrderDataSource:

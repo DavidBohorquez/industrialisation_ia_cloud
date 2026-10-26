@@ -25,5 +25,5 @@ Likely move to option C at around 1M users.
 
 - Every model version is explicit: one sub-folder per version (`artifacts/<version>/model.joblib` + `metadata.json`).
 - A saved version is never overwritten; a new model needs a new `MODEL_VERSION`.
-- The rest of the code depends only on the `ModelRepository` abstraction, so option C means adding one class under `src/infrastructure/` and one line in `src/factory.py`.
+- The rest of the code depends only on the `ModelRepository` abstraction, so option C means adding one class under `src/livraison_express/infrastructure/` and one line in `src/livraison_express/factory.py`.
 - When that happens, this ADR is marked "Superseded by ADR-000X".

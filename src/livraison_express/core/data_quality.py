@@ -1,6 +1,6 @@
 import pandas as pd
 
-from src.core.features import FEATURE_COLUMNS, TARGET_COLUMN
+from livraison_express.core.features import FEATURE_COLUMNS, TARGET_COLUMN
 
 REQUIRED_COLUMNS = {"order_id", "order_date", *FEATURE_COLUMNS, TARGET_COLUMN}
 

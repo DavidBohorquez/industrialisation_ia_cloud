@@ -17,11 +17,11 @@ The training code must therefore run on different data sources depending on the 
 
 ## Decision
 
-Option B. `OrderDataSource` lives in `src/abstractions/`, and `SyntheticOrderSource` in `src/infrastructure/dev/`.
-`src/factory.py` selects the implementation from `APP_ENV`.
+Option B. `OrderDataSource` lives in `src/livraison_express/abstractions/`, and `SyntheticOrderSource` in `src/livraison_express/infrastructure/dev/`.
+`src/livraison_express/factory.py` selects the implementation from `APP_ENV`.
 
 ## Consequences
 
-- Production needs a new implementation (e.g. reading the ERP database) and one line in `src/factory.py`.
+- Production needs a new implementation (e.g. reading the ERP database) and one line in `src/livraison_express/factory.py`.
 - Until then, `APP_ENV` other than `dev` fails with a clear error instead of silently training on fake data.
 - Tests can feed any data through an in-memory source.

@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from src.core.data_quality import clean_orders_data, validate_dataset
+from livraison_express.core.data_quality import clean_orders_data, validate_dataset
 
 
 def test_valid_dataset_passes(orders):

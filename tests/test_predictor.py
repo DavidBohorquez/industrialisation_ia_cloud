@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from src.core.predictor import EligibilityPredictor
+from livraison_express.core.predictor import EligibilityPredictor
 
 
 def test_predict_one_returns_a_valid_prediction(trained_model, valid_order):

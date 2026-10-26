@@ -2,9 +2,9 @@ import logging
 
 from fastapi import FastAPI
 
-from src.api.app import create_app
-from src.config import load_settings
-from src.factory import build_explanation_generator, build_predictor
+from livraison_express.api.app import create_app
+from livraison_express.config import load_settings
+from livraison_express.factory import build_explanation_generator, build_predictor
 
 logger = logging.getLogger(__name__)
 
