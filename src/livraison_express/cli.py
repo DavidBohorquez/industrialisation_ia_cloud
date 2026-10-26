@@ -1,6 +1,6 @@
 import argparse
 import json
-import sys
+import logging
 from pathlib import Path
 
 import pandas as pd
@@ -8,6 +8,9 @@ import pandas as pd
 from livraison_express.config import Settings, load_settings
 from livraison_express.core.training import run_training
 from livraison_express.factory import build_model_repository, build_order_source, build_predictor
+from livraison_express.logging_config import configure_logging
+
+logger = logging.getLogger(__name__)
 
 
 def train(settings: Settings) -> None:
@@ -18,9 +21,9 @@ def train(settings: Settings) -> None:
         random_state=settings.random_state,
     )
 
-    print(f"Modèle {model.version} entraîné et enregistré dans {settings.artifacts_dir}.")
+    logger.info("Modèle %s entraîné et enregistré dans %s.", model.version, settings.artifacts_dir)
     for metric_name, metric_value in model.metrics.items():
-        print(f"{metric_name:>10} : {metric_value:.4f}")
+        logger.info("%10s : %.4f", metric_name, metric_value)
 
 
 def predict(settings: Settings, order_file: Path) -> None:
@@ -37,7 +40,7 @@ def predict_batch(settings: Settings, input_file: Path, output_file: Path) -> No
     predictions = build_predictor(settings).predict_batch(pd.read_csv(input_file))
     predictions.to_csv(output_file, index=False)
 
-    print(f"{len(predictions)} prédictions enregistrées dans {output_file}.")
+    logger.info("%d prédictions enregistrées dans %s.", len(predictions), output_file)
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -64,6 +67,7 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         settings = load_settings()
+        configure_logging(settings.log_level)
 
         if args.command == "train":
             train(settings)
@@ -72,7 +76,7 @@ def main(argv: list[str] | None = None) -> int:
         else:
             predict_batch(settings, args.input_file, args.output_file)
     except (ValueError, FileNotFoundError, FileExistsError) as error:
-        print(f"Erreur : {error}", file=sys.stderr)
+        logger.error("Erreur : %s", error)
         return 1
 
     return 0

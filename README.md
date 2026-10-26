@@ -93,15 +93,16 @@ python -m pytest                                            # run the tests
 
 ## Configuration
 
-Settings come from environment variables (see `src/livraison_express/config.py`), so each environment can differ without code changes.
+Settings are read by `src/livraison_express/config.py` (`pydantic-settings`), in this priority order: environment variables, then a `.env` file at the project root, then the defaults below. Copy `.env.example` to `.env` to change them locally. Invalid values (e.g. `DECISION_THRESHOLD=abc`) stop the program at startup with a clear message.
 
 | Variable | Default | Meaning |
 |---|---|---|
 | `APP_ENV` | `dev` | Selects the implementations in `src/livraison_express/factory.py` |
 | `ARTIFACTS_DIR` | `<project>/artifacts` | Where model versions are stored |
 | `MODEL_VERSION` | `1.0.0` | Version to train (must be new) or to load |
-| `DECISION_THRESHOLD` | `0.5` | Probability from which an order is eligible |
+| `DECISION_THRESHOLD` | `0.5` | Probability from which an order is eligible (0 to 1) |
 | `RANDOM_STATE` | `42` | Seed for data generation, split and model |
+| `LOG_LEVEL` | `INFO` | Minimum level of log messages shown: `DEBUG`, `INFO`, `WARNING`, `ERROR` |
 
 ## Project structure
 
