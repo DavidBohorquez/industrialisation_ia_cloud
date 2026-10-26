@@ -70,8 +70,12 @@ class BatchResponse(BaseModel):
     predictions: list[PredictionResponse]
 
 
-class HealthResponse(BaseModel):
-    status: Literal["ok", "unavailable"]
+class LivenessResponse(BaseModel):
+    status: Literal["alive"]
+
+
+class ReadinessResponse(BaseModel):
+    status: Literal["ready", "not_ready"]
     model_version: str | None
 
 

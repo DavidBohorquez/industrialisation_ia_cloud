@@ -12,10 +12,11 @@ from livraison_express.api.schemas import (
     BatchResponse,
     ErrorResponse,
     Explanation,
-    HealthResponse,
+    LivenessResponse,
     ModelInfoResponse,
     OrderRequest,
     PredictionResponse,
+    ReadinessResponse,
 )
 from livraison_express.core.domain import Prediction
 from livraison_express.core.predictor import EligibilityPredictor
@@ -77,15 +78,25 @@ def create_app(
 
     @app.get(
         "/health",
-        response_model=HealthResponse,
-        responses={503: {"model": HealthResponse, "description": "No model is loaded."}},
+        response_model=LivenessResponse,
         tags=["monitoring"],
+        summary="Liveness: the process is running.",
     )
-    def health(response: Response) -> HealthResponse:
+    def liveness() -> LivenessResponse:
+        return LivenessResponse(status="alive")
+
+    @app.get(
+        "/health/ready",
+        response_model=ReadinessResponse,
+        responses={503: {"model": ReadinessResponse, "description": "No model is loaded."}},
+        tags=["monitoring"],
+        summary="Readiness: a model is loaded and predictions can be served.",
+    )
+    def readiness(response: Response) -> ReadinessResponse:
         if predictor is None:
             response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
-            return HealthResponse(status="unavailable", model_version=None)
-        return HealthResponse(status="ok", model_version=predictor.model.version)
+            return ReadinessResponse(status="not_ready", model_version=None)
+        return ReadinessResponse(status="ready", model_version=predictor.model.version)
 
     @app.get("/v1/model", response_model=ModelInfoResponse, responses=UNAVAILABLE, tags=["model"])
     def model_info() -> ModelInfoResponse:

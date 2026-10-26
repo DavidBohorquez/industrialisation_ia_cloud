@@ -11,15 +11,36 @@
         "tags": [
           "monitoring"
         ],
-        "summary": "Health",
-        "operationId": "health_health_get",
+        "summary": "Liveness: the process is running.",
+        "operationId": "liveness_health_get",
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HealthResponse"
+                  "$ref": "#/components/schemas/LivenessResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health/ready": {
+      "get": {
+        "tags": [
+          "monitoring"
+        ],
+        "summary": "Readiness: a model is loaded and predictions can be served.",
+        "operationId": "readiness_health_ready_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessResponse"
                 }
               }
             }
@@ -29,7 +50,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HealthResponse"
+                  "$ref": "#/components/schemas/ReadinessResponse"
                 }
               }
             }
@@ -306,34 +327,19 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
-      "HealthResponse": {
+      "LivenessResponse": {
         "properties": {
           "status": {
             "type": "string",
-            "enum": [
-              "ok",
-              "unavailable"
-            ],
+            "const": "alive",
             "title": "Status"
-          },
-          "model_version": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Model Version"
           }
         },
         "type": "object",
         "required": [
-          "status",
-          "model_version"
+          "status"
         ],
-        "title": "HealthResponse"
+        "title": "LivenessResponse"
       },
       "ModelInfoResponse": {
         "properties": {
@@ -546,6 +552,35 @@
           "prediction_timestamp"
         ],
         "title": "PredictionResponse"
+      },
+      "ReadinessResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "not_ready"
+            ],
+            "title": "Status"
+          },
+          "model_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "model_version"
+        ],
+        "title": "ReadinessResponse"
       },
       "ValidationError": {
         "properties": {

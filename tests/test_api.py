@@ -100,17 +100,31 @@ def test_batch_too_large_is_rejected_with_413(client, valid_order):
     )
 
 
-def test_health_and_model_info(client):
-    assert client.get("/health").json() == {"status": "ok", "model_version": "test"}
+def test_liveness_and_readiness_with_model(client):
+    assert client.get("/health").json() == {"status": "alive"}
 
+    ready = client.get("/health/ready")
+    assert ready.status_code == 200
+    assert ready.json() == {"status": "ready", "model_version": "test"}
+
+
+def test_liveness_stays_200_without_model(client_without_model):
+    # A 503 here would make an orchestrator restart a process that a restart cannot fix.
+    assert client_without_model.get("/health").status_code == 200
+
+    ready = client_without_model.get("/health/ready")
+    assert ready.status_code == 503
+    assert ready.json() == {"status": "not_ready", "model_version": None}
+
+
+def test_model_info(client):
     info = client.get("/v1/model").json()
     assert info["version"] == "test"
     assert info["decision_threshold"] == 0.5
     assert "roc_auc" in info["metrics"]
 
 
-def test_without_model_every_endpoint_reports_503(client_without_model, valid_order):
-    assert client_without_model.get("/health").status_code == 503
+def test_without_model_every_service_endpoint_reports_503(client_without_model, valid_order):
     assert client_without_model.get("/v1/model").status_code == 503
 
     response = client_without_model.post("/v1/predictions", json=valid_order)
@@ -138,7 +152,13 @@ def test_unexpected_error_hides_internals(trained_model, valid_order):
 def test_openapi_contract_lists_the_endpoints(client):
     paths = client.get("/openapi.json").json()["paths"]
 
-    assert set(paths) == {"/health", "/v1/model", "/v1/predictions", "/v1/predictions/batch"}
+    assert set(paths) == {
+        "/health",
+        "/health/ready",
+        "/v1/model",
+        "/v1/predictions",
+        "/v1/predictions/batch",
+    }
 
 
 def test_committed_openapi_file_is_up_to_date():

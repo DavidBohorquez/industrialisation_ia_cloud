@@ -45,7 +45,8 @@ uvicorn livraison_express.api.main:app --reload      # http://127.0.0.1:8000
 | `POST` | `/v1/predictions` | One order -> prediction + explanation (`?explain=false` to skip it) |
 | `POST` | `/v1/predictions/batch` | `{"orders": [...]}`, up to 1000 orders (`?explain=true` to add explanations) |
 | `GET` | `/v1/model` | Loaded model: version, training date, threshold, features, metrics |
-| `GET` | `/health` | `200` when a model is loaded, `503` otherwise |
+| `GET` | `/health` | Liveness: always `200` while the process runs |
+| `GET` | `/health/ready` | Readiness: `200` when a model is loaded, `503` otherwise |
 
 Example:
 
