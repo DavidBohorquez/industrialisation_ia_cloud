@@ -4,6 +4,7 @@ import logging
 from pathlib import Path
 
 import pandas as pd
+import uvicorn
 
 from livraison_express.config import Settings, load_settings
 from livraison_express.core.training import run_training
@@ -43,12 +44,21 @@ def predict_batch(settings: Settings, input_file: Path, output_file: Path) -> No
     logger.info("%d prédictions enregistrées dans %s.", len(predictions), output_file)
 
 
+def serve(host: str, port: int) -> None:
+    # Import string, not an app object: uvicorn builds the app itself (needed for reload/workers).
+    uvicorn.run("livraison_express.api.main:app", host=host, port=port)
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="python -m livraison_express",
         description="Éligibilité d'une commande à la livraison express.",
     )
     commands = parser.add_subparsers(dest="command", required=True)
+
+    serve_parser = commands.add_parser("serve", help="Démarrer l'API HTTP.")
+    serve_parser.add_argument("--host", default="127.0.0.1", help="Adresse d'écoute (défaut : %(default)s).")
+    serve_parser.add_argument("--port", type=int, default=8000, help="Port d'écoute (défaut : %(default)s).")
 
     commands.add_parser("train", help="Entraîner et enregistrer le modèle.")
 
@@ -69,7 +79,9 @@ def main(argv: list[str] | None = None) -> int:
         settings = load_settings()
         configure_logging(settings.log_level)
 
-        if args.command == "train":
+        if args.command == "serve":
+            serve(args.host, args.port)
+        elif args.command == "train":
             train(settings)
         elif args.command == "predict":
             predict(settings, args.order_file)

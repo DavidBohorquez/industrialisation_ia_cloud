@@ -34,7 +34,8 @@ python -m livraison_express train      # train model MODEL_VERSION (needed once)
 ## HTTP API
 
 ```bash
-uvicorn livraison_express.api.main:app --reload      # http://127.0.0.1:8000
+python -m livraison_express serve                        # http://127.0.0.1:8000 (--host, --port)
+uvicorn livraison_express.api.main:app --reload          # during development: restarts on file changes
 ```
 
 - Swagger UI (try the endpoints in the browser): http://127.0.0.1:8000/docs
@@ -84,11 +85,12 @@ Errors:
 ## Command line
 
 ```bash
-python -m livraison_express train                                         # train and save model MODEL_VERSION
-python -m livraison_express predict examples/order.json                   # one order -> JSON result
-python -m livraison_express predict-batch examples/orders.csv out.csv     # CSV of orders -> CSV with predictions
-python -m livraison_express.api.export_openapi                            # regenerate docs/openapi.json
-python -m pytest                                            # run the tests
+python -m livraison_express serve                                        # start the HTTP API
+python -m livraison_express train                                        # train and save model MODEL_VERSION
+python -m livraison_express predict examples/order.json                  # one order -> JSON result
+python -m livraison_express predict-batch examples/orders.csv out.csv    # CSV of orders -> CSV with predictions
+python -m livraison_express.api.export_openapi                           # regenerate docs/openapi.json
+python -m pytest                                                         # run the tests
 ```
 
 ## Configuration
