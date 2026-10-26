@@ -19,7 +19,7 @@ from livraison_express.api.schemas import (
     ReadinessResponse,
 )
 from livraison_express.core.domain import Prediction
-from livraison_express.core.predictor import EligibilityPredictor
+from livraison_express.core.learning.ml_predict import MLPredict
 
 API_VERSION = "1.0.0"
 MAX_BATCH_SIZE = 1000
@@ -30,7 +30,7 @@ UNAVAILABLE = {503: {"model": ErrorResponse, "description": "No model is loaded.
 
 
 def create_app(
-    predictor: EligibilityPredictor | None,
+    predictor: MLPredict | None,
     explainer: ExplanationGenerator,
 ) -> FastAPI:
     app = FastAPI(
@@ -40,7 +40,7 @@ def create_app(
         "Decision aid only: it does not replace business rules.",
     )
 
-    def require_predictor() -> EligibilityPredictor:
+    def require_predictor() -> MLPredict:
         if predictor is None:
             raise HTTPException(
                 status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -49,7 +49,7 @@ def create_app(
         return predictor
 
     def to_response(
-        current: EligibilityPredictor,
+        current: MLPredict,
         prediction: Prediction,
         order: Mapping[str, Any],
         explain: bool,

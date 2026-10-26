@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from livraison_express.core.predictor import EligibilityPredictor
+from livraison_express.core.learning.ml_predict import MLPredict
 from livraison_express.infrastructure.dev.file_model_repository import FileModelRepository
 
 
@@ -14,8 +14,8 @@ def test_saved_model_reloads_with_same_card_and_predictions(tmp_path, trained_mo
 
     assert loaded.card == trained_model.card
     assert (
-        EligibilityPredictor(loaded).predict_one(valid_order).probability
-        == EligibilityPredictor(trained_model).predict_one(valid_order).probability
+        MLPredict(loaded).predict_one(valid_order).probability
+        == MLPredict(trained_model).predict_one(valid_order).probability
     )
 
 

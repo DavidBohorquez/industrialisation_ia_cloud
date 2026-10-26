@@ -127,21 +127,26 @@ Settings are read by `src/livraison_express/config.py` (`pydantic-settings`), in
 │   │   └── export_openapi.py         # writes docs/openapi.json
 │   ├── abstractions/
 │   │   ├── model_repository.py       # ModelRepository (ABC)
-│   │   ├── order_data_source.py      # OrderDataSource (ABC)
+│   │   ├── order_repository.py       # OrderRepository (ABC): orders as dicts
 │   │   ├── explanation_generator.py  # ExplanationGenerator (ABC)
 │   │   └── experiment_tracker.py     # ExperimentTracker (ABC)
 │   ├── core/
 │   │   ├── domain.py                 # TrainedModel, ModelEntity (model card), Prediction, Factor
-│   │   ├── features.py               # feature lists, categories, preprocessing
+│   │   ├── features.py               # feature contract: lists and allowed categories
 │   │   ├── data_quality.py           # validation and cleaning
-│   │   ├── training.py               # pipeline, training, metrics
-│   │   ├── predictor.py              # EligibilityPredictor
-│   │   └── explanation.py            # contributions + TemplateExplanationGenerator
+│   │   ├── training.py               # run_training: the training job (data -> save -> track)
+│   │   ├── explanation.py            # contributions + TemplateExplanationGenerator
+│   │   └── learning/
+│   │       ├── ml_pipeline.py            # MLPipeline: preprocessing + logistic regression
+│   │       ├── train_test_splitter.py    # TrainTestSplitter: stratified 80/20 split
+│   │       ├── ml_trainer.py             # MLTrainer: fit, evaluate, model card
+│   │       └── ml_predict.py             # MLPredict: probability -> decision
 │   └── infrastructure/
 │       ├── mlflow_tracking.py        # MlflowExperimentTracker (any environment)
 │       └── dev/
-│           ├── synthetic_orders.py       # SyntheticOrderSource
-│           └── file_model_repository.py  # FileModelRepository
+│           ├── order_generator.py            # generate_orders(): synthetic labelled orders
+│           ├── in_memory_order_repository.py # InMemoryOrderRepository
+│           └── file_model_repository.py      # FileModelRepository
 ├── tests/
 ├── examples/                         # sample inputs
 ├── docs/
@@ -156,7 +161,7 @@ Business code (`core/`) depends only on abstractions. Entry points (CLI, API) an
 
 ```
   terminal ──> cli.py ───────┐
-                             ├──> factory.py ──> core/ (predictor, training, explanation)
+                             ├──> factory.py ──> core/ (learning/, training, explanation)
   HTTP ──────> api/ ─────────┘                      │
                (Pydantic, OpenAPI)                  v
                                        abstractions/ (ABC contracts)
@@ -168,10 +173,11 @@ Business code (`core/`) depends only on abstractions. Entry points (CLI, API) an
 Decisions are recorded in `docs/adr/`:
 
 - [ADR-0000](docs/adr/0000-model-artifact-storage.md): model artifacts in a local directory, one folder per version
-- [ADR-0001](docs/adr/0001-order-data-source.md): training data source abstracted per environment
+- [ADR-0001](docs/adr/0001-order-data-source.md): training data source abstracted per environment (superseded by ADR-0005)
 - [ADR-0002](docs/adr/0002-notebook-scope.md): which notebook code goes into the application
 - [ADR-0003](docs/adr/0003-http-api.md): HTTP API, OpenAPI contract and explanations
 - [ADR-0004](docs/adr/0004-mlflow-tracking-and-model-card.md): MLflow experiment tracking and model card
+- [ADR-0005](docs/adr/0005-align-with-correction.md): orders as dicts in an `OrderRepository`, learning classes aligned with the course correction
 
 ## Status
 

@@ -1,10 +1,5 @@
 from typing import Literal
 
-from sklearn.compose import ColumnTransformer
-from sklearn.impute import SimpleImputer
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
-
 TARGET_COLUMN = "express_eligible"
 
 Weather = Literal["normal", "pluie", "neige", "orage"]
@@ -31,26 +26,3 @@ CATEGORICAL_FEATURES = [
 
 # Les identifiants et les dates brutes ne sont pas utilisés par le modèle.
 FEATURE_COLUMNS = NUMERIC_FEATURES + CATEGORICAL_FEATURES
-
-
-def build_preprocessor() -> ColumnTransformer:
-    numeric_transformer = Pipeline(
-        steps=[
-            ("imputer", SimpleImputer(strategy="median")),
-            ("scaler", StandardScaler()),
-        ]
-    )
-
-    categorical_transformer = Pipeline(
-        steps=[
-            ("imputer", SimpleImputer(strategy="most_frequent")),
-            ("onehot", OneHotEncoder(handle_unknown="ignore", sparse_output=False)),
-        ]
-    )
-
-    return ColumnTransformer(
-        transformers=[
-            ("numeric", numeric_transformer, NUMERIC_FEATURES),
-            ("categorical", categorical_transformer, CATEGORICAL_FEATURES),
-        ]
-    )

@@ -5,7 +5,7 @@ import pandas as pd
 from livraison_express.core.domain import Factor, Prediction
 from livraison_express.core.explanation import TemplateExplanationGenerator, linear_contributions
 from livraison_express.core.features import FEATURE_COLUMNS
-from livraison_express.core.predictor import EligibilityPredictor
+from livraison_express.core.learning.ml_predict import MLPredict
 
 
 def make_prediction(eligible: bool, probability: float) -> Prediction:
@@ -25,7 +25,7 @@ def test_contributions_cover_each_feature_once(trained_model, valid_order):
 
 
 def test_contributions_add_up_to_the_model_score(trained_model, valid_order):
-    predictor = EligibilityPredictor(trained_model)
+    predictor = MLPredict(trained_model)
     classifier = trained_model.pipeline.named_steps["classifier"]
 
     factors = linear_contributions(trained_model.pipeline, pd.DataFrame([valid_order]))
@@ -38,7 +38,7 @@ def test_contributions_add_up_to_the_model_score(trained_model, valid_order):
 def test_long_distance_is_a_top_unfavorable_factor(trained_model, valid_order):
     far_order = {**valid_order, "distance_km": 45}
 
-    factors = EligibilityPredictor(trained_model).top_factors(far_order)
+    factors = MLPredict(trained_model).top_factors(far_order)
 
     distance = next(f for f in factors if f.feature == "distance_km")
     assert distance.contribution < 0

@@ -3,12 +3,12 @@ from fastapi.testclient import TestClient
 
 from livraison_express.api.app import MAX_BATCH_SIZE, create_app
 from livraison_express.core.explanation import TemplateExplanationGenerator
-from livraison_express.core.predictor import EligibilityPredictor
+from livraison_express.core.learning.ml_predict import MLPredict
 
 
 @pytest.fixture
 def client(trained_model):
-    return TestClient(create_app(EligibilityPredictor(trained_model), TemplateExplanationGenerator()))
+    return TestClient(create_app(MLPredict(trained_model), TemplateExplanationGenerator()))
 
 
 @pytest.fixture
@@ -137,7 +137,7 @@ def test_without_model_every_service_endpoint_reports_503(client_without_model, 
 
 
 def test_unexpected_error_hides_internals(trained_model, valid_order):
-    class BrokenPredictor(EligibilityPredictor):
+    class BrokenPredictor(MLPredict):
         def predict_one(self, order):
             raise RuntimeError("secret: /srv/models/1.0.0/model.joblib is corrupted")
 

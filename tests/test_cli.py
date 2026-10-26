@@ -3,7 +3,7 @@ import json
 import uvicorn
 
 from livraison_express import cli
-from livraison_express.core.predictor import EligibilityPredictor
+from livraison_express.core.learning.ml_predict import MLPredict
 
 
 def test_serve_starts_uvicorn_with_the_api(monkeypatch):
@@ -28,7 +28,7 @@ def test_serve_defaults_to_localhost(monkeypatch):
 def test_predict_prints_the_prediction_as_json(tmp_path, monkeypatch, capsys, trained_model, valid_order):
     order_file = tmp_path / "order.json"
     order_file.write_text(json.dumps(valid_order), encoding="utf-8")
-    monkeypatch.setattr(cli, "build_predictor", lambda settings: EligibilityPredictor(trained_model))
+    monkeypatch.setattr(cli, "build_predictor", lambda settings: MLPredict(trained_model))
 
     exit_code = cli.main(["predict", str(order_file)])
 

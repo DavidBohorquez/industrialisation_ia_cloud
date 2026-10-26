@@ -12,7 +12,9 @@ ELIGIBLE = "oui"
 NOT_ELIGIBLE = "non"
 
 
-class EligibilityPredictor:
+class MLPredict:
+    """Turns the model's probability into a decision with the configured threshold."""
+
     def __init__(self, model: TrainedModel, threshold: float = 0.5):
         if not 0 <= threshold <= 1:
             raise ValueError("Le seuil de décision doit être compris entre 0 et 1.")

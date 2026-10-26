@@ -1,6 +1,6 @@
 # ADR-0002: Which notebook code goes into the application
 
-- **Status:** Accepted. The "model card" and "MLflow tracking" rows are superseded by [ADR-0004](0004-mlflow-tracking-and-model-card.md).
+- **Status:** Accepted. The "model card" and "MLflow tracking" rows are superseded by [ADR-0004](0004-mlflow-tracking-and-model-card.md); the "pipeline/training" and "prediction" rows by [ADR-0005](0005-align-with-correction.md).
 - **Date:** 2026-10-07
 
 ## Context

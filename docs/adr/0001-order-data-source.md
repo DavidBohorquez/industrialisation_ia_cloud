@@ -1,6 +1,6 @@
 # ADR-0001: Abstract the source of training orders
 
-- **Status:** Accepted
+- **Status:** Superseded by [ADR-0005](0005-align-with-correction.md) (`OrderDataSource` replaced by `OrderRepository`)
 - **Date:** 2026-10-07
 
 ## Context

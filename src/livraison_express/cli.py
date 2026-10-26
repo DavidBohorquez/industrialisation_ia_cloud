@@ -11,8 +11,9 @@ from livraison_express.core.training import run_training
 from livraison_express.factory import (
     build_experiment_tracker,
     build_model_repository,
-    build_order_source,
+    build_order_repository,
     build_predictor,
+    build_trainer,
 )
 from livraison_express.logging_config import configure_logging
 
@@ -21,12 +22,11 @@ logger = logging.getLogger(__name__)
 
 def train(settings: Settings) -> None:
     model = run_training(
-        source=build_order_source(settings),
-        repository=build_model_repository(settings),
+        order_repository=build_order_repository(settings),
+        model_repository=build_model_repository(settings),
         tracker=build_experiment_tracker(settings),
+        trainer=build_trainer(settings),
         version=settings.model_version,
-        random_state=settings.random_state,
-        evaluation_threshold=settings.decision_threshold,
     )
 
     card = model.card

@@ -1,20 +1,24 @@
 from livraison_express.abstractions.experiment_tracker import ExperimentTracker
 from livraison_express.abstractions.explanation_generator import ExplanationGenerator
 from livraison_express.abstractions.model_repository import ModelRepository
-from livraison_express.abstractions.order_data_source import OrderDataSource
+from livraison_express.abstractions.order_repository import OrderRepository
 from livraison_express.config import Settings
 from livraison_express.core.explanation import TemplateExplanationGenerator
-from livraison_express.core.predictor import EligibilityPredictor
+from livraison_express.core.learning.ml_predict import MLPredict
+from livraison_express.core.learning.ml_trainer import MLTrainer
 from livraison_express.infrastructure.dev.file_model_repository import FileModelRepository
-from livraison_express.infrastructure.dev.synthetic_orders import SyntheticOrderSource
+from livraison_express.infrastructure.dev.in_memory_order_repository import (
+    InMemoryOrderRepository,
+)
+from livraison_express.infrastructure.dev.order_generator import generate_orders
 
 
-def build_order_source(settings: Settings) -> OrderDataSource:
+def build_order_repository(settings: Settings) -> OrderRepository:
     if settings.environment == "dev":
-        return SyntheticOrderSource(random_state=settings.random_state)
+        return InMemoryOrderRepository(generate_orders(random_state=settings.random_state))
 
     raise ValueError(
-        f"Aucune source de commandes pour l'environnement '{settings.environment}'."
+        f"Aucun stockage de commandes pour l'environnement '{settings.environment}'."
     )
 
 
@@ -27,9 +31,16 @@ def build_model_repository(settings: Settings) -> ModelRepository:
     )
 
 
-def build_predictor(settings: Settings) -> EligibilityPredictor:
+def build_predictor(settings: Settings) -> MLPredict:
     model = build_model_repository(settings).load(settings.model_version)
-    return EligibilityPredictor(model, threshold=settings.decision_threshold)
+    return MLPredict(model, threshold=settings.decision_threshold)
+
+
+def build_trainer(settings: Settings) -> MLTrainer:
+    return MLTrainer(
+        random_state=settings.random_state,
+        evaluation_threshold=settings.decision_threshold,
+    )
 
 
 def build_explanation_generator() -> ExplanationGenerator:
