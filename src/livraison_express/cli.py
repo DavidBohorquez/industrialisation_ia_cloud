@@ -8,7 +8,12 @@ import uvicorn
 
 from livraison_express.config import Settings, load_settings
 from livraison_express.core.training import run_training
-from livraison_express.factory import build_model_repository, build_order_source, build_predictor
+from livraison_express.factory import (
+    build_experiment_tracker,
+    build_model_repository,
+    build_order_source,
+    build_predictor,
+)
 from livraison_express.logging_config import configure_logging
 
 logger = logging.getLogger(__name__)
@@ -18,6 +23,7 @@ def train(settings: Settings) -> None:
     model = run_training(
         source=build_order_source(settings),
         repository=build_model_repository(settings),
+        tracker=build_experiment_tracker(settings),
         version=settings.model_version,
         random_state=settings.random_state,
         evaluation_threshold=settings.decision_threshold,

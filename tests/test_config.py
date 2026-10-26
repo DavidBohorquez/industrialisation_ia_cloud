@@ -12,6 +12,8 @@ ENV_KEYS = [
     "DECISION_THRESHOLD",
     "RANDOM_STATE",
     "LOG_LEVEL",
+    "MLFLOW_TRACKING_URI",
+    "MLFLOW_ARTIFACT_LOCATION",
 ]
 
 
@@ -30,6 +32,8 @@ def test_defaults_without_environment():
     assert settings.decision_threshold == 0.5
     assert settings.random_state == 42
     assert settings.log_level == "INFO"
+    assert settings.mlflow_tracking_uri == f"sqlite:///{PROJECT_ROOT / 'mlflow.db'}"
+    assert settings.mlflow_artifact_location == str(PROJECT_ROOT / "mlruns")
 
 
 def test_environment_variables_override_defaults(monkeypatch):

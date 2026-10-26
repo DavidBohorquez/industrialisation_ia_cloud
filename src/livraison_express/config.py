@@ -26,6 +26,8 @@ class Settings(BaseSettings):
     decision_threshold: float = Field(default=0.5, ge=0, le=1)
     random_state: int = 42
     log_level: LogLevel = "INFO"
+    mlflow_tracking_uri: str = f"sqlite:///{PROJECT_ROOT / 'mlflow.db'}"
+    mlflow_artifact_location: str = str(PROJECT_ROOT / "mlruns")
 
 
 def load_settings() -> Settings:

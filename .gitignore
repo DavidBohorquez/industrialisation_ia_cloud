@@ -16,7 +16,8 @@ venv/
 artifacts/
 notebooks/artifacts/
 
-# MLflow runs
+# MLflow runs (tracking database + run artifacts)
+mlflow.db
 mlruns/
 notebooks/mlruns/
 

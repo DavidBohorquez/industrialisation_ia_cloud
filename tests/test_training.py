@@ -1,5 +1,6 @@
 import pandas as pd
 
+from livraison_express.abstractions.experiment_tracker import ExperimentTracker
 from livraison_express.abstractions.model_repository import ModelRepository
 from livraison_express.abstractions.order_data_source import OrderDataSource
 from livraison_express.core.domain import TrainedModel
@@ -25,19 +26,31 @@ class InMemoryModelRepository(ModelRepository):
         return self.models[version]
 
 
-def test_run_training_cleans_trains_and_saves(orders):
+class RecordingTracker(ExperimentTracker):
+    def __init__(self):
+        self.runs: list[tuple[TrainedModel, dict]] = []
+
+    def log_training(self, model: TrainedModel, params) -> str:
+        self.runs.append((model, dict(params)))
+        return "run-1"
+
+
+def test_run_training_cleans_trains_saves_and_tracks(orders):
     dirty_orders = pd.concat([orders, orders.iloc[[0]]], ignore_index=True)
     repository = InMemoryModelRepository()
+    tracker = RecordingTracker()
 
     model = run_training(
         InMemoryOrderSource(dirty_orders),
         repository,
+        tracker,
         "2.0.0",
         random_state=0,
         evaluation_threshold=0.5,
     )
 
     assert repository.load("2.0.0") is model
+    assert tracker.runs == [(model, {"random_state": 0})]
     metrics = model.card.metrics
     assert set(metrics) == {"accuracy", "precision", "recall", "f1_score", "roc_auc"}
     assert metrics["roc_auc"] > 0.7

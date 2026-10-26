@@ -106,6 +106,8 @@ Settings are read by `src/livraison_express/config.py` (`pydantic-settings`), in
 | `DECISION_THRESHOLD` | `0.5` | Probability from which an order is eligible (0 to 1) |
 | `RANDOM_STATE` | `42` | Seed for data generation, split and model |
 | `LOG_LEVEL` | `INFO` | Minimum level of log messages shown: `DEBUG`, `INFO`, `WARNING`, `ERROR` |
+| `MLFLOW_TRACKING_URI` | `sqlite:///<project>/mlflow.db` | Where training runs are recorded (`mlflow ui --backend-store-uri sqlite:///mlflow.db`) |
+| `MLFLOW_ARTIFACT_LOCATION` | `<project>/mlruns` | Where MLflow stores run files (model, model card) |
 
 ## Project structure
 
@@ -114,8 +116,9 @@ Settings are read by `src/livraison_express/config.py` (`pydantic-settings`), in
 ├── pyproject.toml                    # package definition (pip install -e .)
 ├── src/livraison_express/
 │   ├── __main__.py                   # entry point: python -m livraison_express
-│   ├── cli.py                        # commands train / predict / predict-batch
-│   ├── config.py                     # settings from environment variables
+│   ├── cli.py                        # commands serve / train / predict / predict-batch
+│   ├── config.py                     # settings: environment variables, .env, defaults
+│   ├── logging_config.py             # LOG_LEVEL and log format
 │   ├── factory.py                    # picks the implementation for each abstraction
 │   ├── api/
 │   │   ├── app.py                    # FastAPI endpoints and error handling
@@ -125,7 +128,8 @@ Settings are read by `src/livraison_express/config.py` (`pydantic-settings`), in
 │   ├── abstractions/
 │   │   ├── model_repository.py       # ModelRepository (ABC)
 │   │   ├── order_data_source.py      # OrderDataSource (ABC)
-│   │   └── explanation_generator.py  # ExplanationGenerator (ABC)
+│   │   ├── explanation_generator.py  # ExplanationGenerator (ABC)
+│   │   └── experiment_tracker.py     # ExperimentTracker (ABC)
 │   ├── core/
 │   │   ├── domain.py                 # TrainedModel, ModelEntity (model card), Prediction, Factor
 │   │   ├── features.py               # feature lists, categories, preprocessing
@@ -134,6 +138,7 @@ Settings are read by `src/livraison_express/config.py` (`pydantic-settings`), in
 │   │   ├── predictor.py              # EligibilityPredictor
 │   │   └── explanation.py            # contributions + TemplateExplanationGenerator
 │   └── infrastructure/
+│       ├── mlflow_tracking.py        # MlflowExperimentTracker (any environment)
 │       └── dev/
 │           ├── synthetic_orders.py       # SyntheticOrderSource
 │           └── file_model_repository.py  # FileModelRepository
@@ -157,7 +162,7 @@ Business code (`core/`) depends only on abstractions. Entry points (CLI, API) an
                                        abstractions/ (ABC contracts)
                                                     ^
                                                     │ implemented by
-                          infrastructure/dev/  +  core/explanation.py (template)
+              infrastructure/ (dev/, mlflow_tracking.py)  +  core/explanation.py (template)
 ```
 
 Decisions are recorded in `docs/adr/`:
@@ -166,6 +171,7 @@ Decisions are recorded in `docs/adr/`:
 - [ADR-0001](docs/adr/0001-order-data-source.md): training data source abstracted per environment
 - [ADR-0002](docs/adr/0002-notebook-scope.md): which notebook code goes into the application
 - [ADR-0003](docs/adr/0003-http-api.md): HTTP API, OpenAPI contract and explanations
+- [ADR-0004](docs/adr/0004-mlflow-tracking-and-model-card.md): MLflow experiment tracking and model card
 
 ## Status
 
@@ -176,9 +182,9 @@ Decisions are recorded in `docs/adr/`:
 - [x] Tests
 - [x] Prediction API with OpenAPI contract
 - [x] Template explanation (LLM-ready abstraction)
+- [x] Model card and MLflow experiment tracking
 - [ ] LLM explanation generator
 - [ ] Production data source and environment
-- [ ] MLflow tracking
 - [ ] CI/CD and deployment
 
 ## Limitations
