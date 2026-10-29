@@ -178,6 +178,7 @@ Decisions are recorded in `docs/adr/`:
 - [ADR-0003](docs/adr/0003-http-api.md): HTTP API, OpenAPI contract and explanations
 - [ADR-0004](docs/adr/0004-mlflow-tracking-and-model-card.md): MLflow experiment tracking and model card
 - [ADR-0005](docs/adr/0005-align-with-correction.md): orders as dicts in an `OrderRepository`, learning classes aligned with the course correction
+- [ADR-0006](docs/adr/0006-branching-model.md): GitFlow branches, semantic version tags and Docker image tags (proposed)
 
 ## Status
 
