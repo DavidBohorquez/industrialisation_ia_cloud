@@ -25,13 +25,28 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # A job = one machine running its steps in order. Several jobs would run in parallel.
-  lint-and-test:
-    name: Lint and test
+  # A job = one machine running its steps in order. Jobs run in parallel.
+  # This one runs twice (a "matrix"), once per install profile:
+  #   serving:  what the API image installs (no train extra). Fails if serving code needs mlflow,
+  #             or any package that only the training profile brings in.
+  #   training: serving + train extra, so every test runs, including the MLflow one.
+  tests:
+    name: ${{ matrix.profile }} tests
     # WHERE: a fresh Ubuntu virtual machine lent by GitHub, deleted after the job.
     runs-on: ubuntu-latest
     # Default is 6 hours; a hung test should not burn that much.
     timeout-minutes: 15
+    strategy:
+      # Let both profiles finish even if one fails: the two results say different things.
+      fail-fast: false
+      matrix:
+        include:
+          - profile: serving
+            lock: requirements.lock
+            pytest-args: '-m "not training"'
+          - profile: training
+            lock: requirements-train.lock
+            pytest-args: ""
 
     # WHAT, in order. "uses" = run a ready-made action; "run" = your own shell commands.
     # The first failing step stops the job: red cross on the commit / PR.
@@ -50,26 +65,53 @@ jobs:
           # when one of these files changes.
           cache: pip
           cache-dependency-path: |
-            requirements.txt
-            requirements-dev.txt
+            ${{ matrix.lock }}
+            requirements-dev.lock
 
       # 3. Install the dependencies AND the project itself.
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          # Pinned app + test dependencies. Also installs the notebook tools (jupyter...), which CI
-          # does not need: splitting them out is the job of the dependency-extras feature.
-          pip install -r requirements-dev.txt
-          # Editable install, as on a developer machine: config.py finds the repo (docs/openapi.json,
+          # Exact versions with hashes, generated from uv.lock (scripts/update-locks.sh).
+          pip install -r ${{ matrix.lock }} -r requirements-dev.lock
+          # --no-deps: everything is already installed from the lock files, nothing else may come in.
+          # Editable, as on a developer machine: config.py finds the repo (docs/openapi.json,
           # artifacts/, .env) from its own location, which only works when the code runs from src/.
-          pip install -e .
+          pip install --no-deps -e .
 
-      # 4. Lint first: it takes seconds, so style and import errors fail fast.
+      # 4. Lint once (it does not depend on the profile). It takes seconds, so it fails fast.
       #    The "github" format turns each error into a comment on the right line of the PR diff.
       - name: Lint (ruff)
+        if: matrix.profile == 'serving'
         run: ruff check --output-format=github .
 
       # 5. Tests last: slower. They train a small model in memory, so no artifacts/ or
       #    mlflow.db is needed on this fresh machine.
       - name: Test (pytest)
-        run: pytest
+        run: pytest ${{ matrix.pytest-args }}
+
+  # The lock files are generated from pyproject.toml: fail if someone changed a dependency
+  # without running scripts/update-locks.sh.
+  locks:
+    name: lock files in sync
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      # Third-party action: pinned to a commit (a tag can be moved, a commit cannot).
+      # setup-uv publishes exact versions only, no moving "v10" tag.
+      - name: Set up uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+
+      - name: Regenerate the lock files
+        run: ./scripts/update-locks.sh
+
+      - name: Fail if they changed
+        run: git diff --exit-code

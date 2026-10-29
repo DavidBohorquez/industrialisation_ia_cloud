@@ -26,10 +26,25 @@ Requirements: Python 3.13+.
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install -r requirements-dev.txt    # tests and notebook tools (includes requirements.txt)
-pip install -e .                       # installs the livraison_express package in editable mode
+pip install -r requirements-train.lock -r requirements-dev.lock  # app, training and test tools
+pip install --no-deps -e .             # the livraison_express package, editable
 python -m livraison_express train      # train model MODEL_VERSION (needed once)
 ```
+
+Add `-r requirements-notebook.lock` to the first `pip install` to run the notebook.
+
+### Dependencies
+
+`pyproject.toml` lists compatible version ranges. The `*.lock` files, generated from `uv.lock`, pin the exact versions (with hashes) that every environment installs, one file per install profile:
+
+| File | Contents | Used by |
+|---|---|---|
+| `requirements.lock` | API, CLI, predictions | serving |
+| `requirements-train.lock` | serving + `train` extra (MLflow) | training job |
+| `requirements-dev.lock` | `dev` group: pytest, ruff, httpx2 | tests and lint |
+| `requirements-notebook.lock` | `notebook` group: jupyter, matplotlib, seaborn | notebook |
+
+To change a dependency, edit `pyproject.toml`, run `scripts/update-locks.sh` (needs [uv](https://docs.astral.sh/uv/)) and commit `pyproject.toml`, `uv.lock` and the `*.lock` files together. CI fails when they are out of sync.
 
 ## HTTP API
 
@@ -113,7 +128,11 @@ Settings are read by `src/livraison_express/config.py` (`pydantic-settings`), in
 
 ```
 .
-├── pyproject.toml                    # package definition (pip install -e .)
+├── pyproject.toml                    # package definition, dependency ranges (pip install --no-deps -e .)
+├── uv.lock                           # exact versions of every dependency (generated)
+├── requirements*.lock                # one install profile per file (generated from uv.lock)
+├── scripts/update-locks.sh           # regenerates uv.lock and the requirements*.lock files
+├── .github/workflows/ci.yml          # CI: lint, tests per install profile, lock files check
 ├── src/livraison_express/
 │   ├── __main__.py                   # entry point: python -m livraison_express
 │   ├── cli.py                        # commands serve / train / predict / predict-batch
