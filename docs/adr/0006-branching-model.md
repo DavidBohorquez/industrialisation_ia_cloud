@@ -1,6 +1,6 @@
 # ADR-0006: GitFlow branches, semantic versions and Docker image tags
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-10-29
 
 ## Context
