@@ -198,6 +198,7 @@ Decisions are recorded in `docs/adr/`:
 - [ADR-0004](docs/adr/0004-mlflow-tracking-and-model-card.md): MLflow experiment tracking and model card
 - [ADR-0005](docs/adr/0005-align-with-correction.md): orders as dicts in an `OrderRepository`, learning classes aligned with the course correction
 - [ADR-0006](docs/adr/0006-branching-model.md): GitFlow branches, semantic version tags and Docker image tags
+- [ADR-0007](docs/adr/0007-dependency-management.md): dependency ranges, `train` extra, dev/notebook groups, `uv.lock` exported to one lock file per install profile, CI per profile
 
 ## Status
 
