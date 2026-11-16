@@ -1,12 +1,19 @@
-from mlflow.tracking import MlflowClient
+import pytest
 
-from livraison_express.infrastructure.mlflow_tracking import (
-    EXPERIMENT_NAME,
-    MlflowExperimentTracker,
-)
+# Needs the train extra. The serving CI job runs `pytest -m "not training"`.
+pytestmark = pytest.mark.training
 
 
 def test_training_run_is_recorded_with_card_metrics_and_model(tmp_path, monkeypatch, trained_model):
+    # Imported here, not at the top: pytest imports every test file before filtering by marker,
+    # and mlflow is not installed in the serving job.
+    from mlflow.tracking import MlflowClient
+
+    from livraison_express.infrastructure.mlflow_tracking import (
+        EXPERIMENT_NAME,
+        MlflowExperimentTracker,
+    )
+
     working_dir = tmp_path / "cwd"
     working_dir.mkdir()
     monkeypatch.chdir(working_dir)

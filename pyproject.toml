@@ -8,16 +8,38 @@ version = "1.0.0"
 description = "Prédiction d'éligibilité d'une commande à la livraison express"
 readme = "README.md"
 requires-python = ">=3.13"
-dynamic = ["dependencies"]
+# Ranges say what the code is compatible with: lower bound = version tested, upper bound = next
+# version allowed to break it (next major, or next minor for 0.x packages). The exact versions
+# installed everywhere come from uv.lock, exported to the requirements*.lock files.
+dependencies = [
+    "fastapi>=0.143,<0.144",
+    "joblib>=1.6,<2",
+    "numpy>=2.5,<3",
+    "pandas>=3.0,<4",
+    "pydantic>=2.14,<3",
+    "pydantic-settings>=2.16,<3",
+    # Minor bound: a model saved with one scikit-learn minor version may not load with another,
+    # and the serving image loads models made by the training job.
+    "scikit-learn>=1.9,<1.10",
+    "uvicorn[standard]>=0.54,<0.55",
+]
+
+[project.optional-dependencies]
+# Training job (python -m livraison_express train): experiment tracking. Serving does not need it.
+train = ["mlflow>=3.17,<4"]
+
+# Tools for working on the repository (PEP 735). Not part of the package users install.
+[dependency-groups]
+dev = ["httpx2>=2.13,<3", "pytest>=9.1,<10", "ruff>=0.17,<0.18"]
+notebook = ["jupyter>=1.1,<2", "matplotlib>=3.11,<4", "seaborn>=0.13,<0.14"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
-[tool.setuptools.dynamic]
-dependencies = { file = ["requirements.txt"] }
-
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = ["--strict-markers"]
+markers = ["training: needs the train extra (mlflow); skipped by the serving CI job"]
 
 [tool.ruff]
 target-version = "py313"
