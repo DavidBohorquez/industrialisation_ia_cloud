@@ -117,14 +117,14 @@ Two images built from one `Dockerfile` ([ADR-0008](docs/adr/0008-docker-images.m
 
 ```bash
 docker compose run --rm train      # train MODEL_VERSION into the "models" volume (once per version)
-docker compose up -d api           # API on http://127.0.0.1:8000 (Swagger UI: /docs)
+docker compose up -d --wait api    # API on http://127.0.0.1:8000 (Swagger UI: /docs), returns once healthy
 docker compose logs -f api         # follow the logs
 docker compose down                # stop (add --volumes to delete the models and MLflow runs)
 docker build --target test .       # run lint and tests inside the image
 ```
 
 ```
-                 docker compose run --rm train          docker compose up -d api
+                 docker compose run --rm train          docker compose up -d --wait api
                  ┌──────────────────────────┐           ┌──────────────────────────┐
                  │ train image (+ mlflow)   │  writes   │ serve image (no mlflow)  │──► 127.0.0.1:8000
                  │ python -m ... train      │ ───────►  │ python -m ... serve      │
@@ -151,8 +151,16 @@ Run a released version without the source code:
 ```bash
 docker volume create models
 docker run --rm -v models:/app/artifacts ghcr.io/davidbohorquez/industrialisation_ia_cloud-train:1.1.0
-docker run -d -p 127.0.0.1:8000:8000 -v models:/app/artifacts:ro --read-only \
+docker run -d --name livraison-api -p 127.0.0.1:8000:8000 -v models:/app/artifacts:ro --read-only \
   ghcr.io/davidbohorquez/industrialisation_ia_cloud:1.1.0
+docker ps --filter name=livraison-api   # wait until STATUS shows "(healthy)" instead of "(health: starting)"
+curl http://127.0.0.1:8000/health/ready
+```
+
+The API needs a few seconds to start: until `docker ps` shows `(healthy)`, a request can get an empty reply (`curl: (52)`). The image's `HEALTHCHECK` calls `/health` every 2 seconds while the container starts. In a script, wait for it instead of retrying:
+
+```bash
+until [ "$(docker inspect --format '{{.State.Health.Status}}' livraison-api)" = healthy ]; do sleep 1; done
 ```
 
 ## Configuration
