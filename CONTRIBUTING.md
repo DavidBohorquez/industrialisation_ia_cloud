@@ -35,7 +35,7 @@ release/<X.Y.Z>, hotfix/<X.Y.Z>    maintainers only (see "Releases" below)
 1. Update `develop` and create your branch: `git switch develop && git pull --ff-only && git switch -c feature/<short-name>`.
 2. Commit small, focused changes (see "Commit messages").
 3. Push and open a pull request into **`develop`**, using the template.
-4. The required checks must pass: `serving tests`, `training tests` and `lock files in sync`. Nobody can merge a pull request with a red check, nor push directly to `develop` or `main`.
+4. The required checks must pass: `serving tests`, `training tests`, `lock files in sync` and `docker image`. Nobody can merge a pull request with a red check, nor push directly to `develop` or `main`.
 5. The pull request is merged with **Create a merge commit** (never squashed), then the branch is deleted.
 
 ## Commit messages

@@ -111,6 +111,32 @@ python -m pytest                                                         # run t
 ruff check .                                                             # lint (rules in pyproject.toml)
 ```
 
+## Run with Docker
+
+Two images built from one `Dockerfile` ([ADR-0008](docs/adr/0008-docker-images.md)): `train` writes a model into a volume, `serve` (the API) reads it.
+
+```bash
+docker compose run --rm train      # train MODEL_VERSION into the "models" volume (once per version)
+docker compose up -d api           # API on http://127.0.0.1:8000 (Swagger UI: /docs)
+docker compose logs -f api         # follow the logs
+docker compose down                # stop (add --volumes to delete the models and MLflow runs)
+docker build --target test .       # run lint and tests inside the image
+```
+
+```
+                 docker compose run --rm train          docker compose up -d api
+                 ┌──────────────────────────┐           ┌──────────────────────────┐
+                 │ train image (+ mlflow)   │  writes   │ serve image (no mlflow)  │──► 127.0.0.1:8000
+                 │ python -m ... train      │ ───────►  │ python -m ... serve      │
+                 └──────────────────────────┘ "models"  └──────────────────────────┘
+                                               volume      reads it read-only
+```
+
+- **Settings** come from environment variables, e.g. `MODEL_VERSION=1.1.0 docker compose run --rm train`. Compose also reads a `.env` file next to `docker-compose.yml`; no `.env` is ever copied into an image.
+- **Security:** the containers run as a non-root user (uid 10001); the API has a read-only filesystem, a read-only model volume, no Linux capabilities, and only port 8000, published on `127.0.0.1`.
+- **Size:** the serving image is about 160 MB compressed (most of it scipy, pandas, numpy and scikit-learn). The final images only receive the virtual environment built in earlier stages: no pip cache, tests or build tools.
+- The CI job `docker image` runs these same steps on every pull request.
+
 ## Configuration
 
 Settings are read by `src/livraison_express/config.py` (`pydantic-settings`), in this priority order: environment variables, then a `.env` file at the project root, then the defaults below. Copy `.env.example` to `.env` to change them locally. Invalid values (e.g. `DECISION_THRESHOLD=abc`) stop the program at startup with a clear message.
@@ -141,6 +167,9 @@ Settings are read by `src/livraison_express/config.py` (`pydantic-settings`), in
 ├── CODE_OF_CONDUCT.md                # community rules (Contributor Covenant 3.0)
 ├── CHANGELOG.md                      # notable changes per version (Keep a Changelog)
 ├── LICENSE                           # MIT
+├── Dockerfile                        # multi-stage: test, train and serve images
+├── .dockerignore                     # allow-list of the files the images may contain
+├── docker-compose.yml                # train job + API sharing a model volume
 ├── src/livraison_express/
 │   ├── __main__.py                   # entry point: python -m livraison_express
 │   ├── cli.py                        # commands serve / train / predict / predict-batch
@@ -207,6 +236,7 @@ Decisions are recorded in `docs/adr/`:
 - [ADR-0005](docs/adr/0005-align-with-correction.md): orders as dicts in an `OrderRepository`, learning classes aligned with the course correction
 - [ADR-0006](docs/adr/0006-branching-model.md): GitFlow branches, semantic version tags and Docker image tags
 - [ADR-0007](docs/adr/0007-dependency-management.md): dependency ranges, `train` extra, dev/notebook groups, `uv.lock` exported to one lock file per install profile, CI per profile
+- [ADR-0008](docs/adr/0008-docker-images.md): one multi-stage Dockerfile for the train and serve images, the model in a volume, rootless and read-only containers
 
 ## Status
 
@@ -221,7 +251,8 @@ Decisions are recorded in `docs/adr/`:
 - [ ] LLM explanation generator
 - [x] Continuous integration (GitHub Actions) and locked dependencies
 - [x] Collaboration files: license, contributing guide, security policy, code of conduct, changelog
-- [ ] Docker images and release pipeline
+- [x] Docker images (test, train, serve) and docker-compose
+- [ ] Release pipeline (images published on each version tag)
 - [ ] Production data source and environment
 
 ## Limitations
