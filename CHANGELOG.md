@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-17
+
 ### Added
 
 - Continuous integration (GitHub Actions) on every pull request and merge into `develop` and `main`: ruff, then pytest once per install profile (serving without MLflow, training with it), and a check that the lock files match `pyproject.toml`.
@@ -35,5 +37,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Settings from environment variables and `.env` (pydantic-settings), and logging.
 - MLflow experiment tracking, and a model card stored with each model version.
 
-[Unreleased]: https://github.com/DavidBohorquez/industrialisation_ia_cloud/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/DavidBohorquez/industrialisation_ia_cloud/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/DavidBohorquez/industrialisation_ia_cloud/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/DavidBohorquez/industrialisation_ia_cloud/releases/tag/v1.0.0
