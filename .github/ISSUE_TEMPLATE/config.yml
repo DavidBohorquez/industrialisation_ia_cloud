@@ -1,0 +1,6 @@
+# Issues must use a form; security reports go through the private channel.
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/DavidBohorquez/industrialisation_ia_cloud/security/advisories/new
+    about: Report it privately, never in a public issue (see SECURITY.md).

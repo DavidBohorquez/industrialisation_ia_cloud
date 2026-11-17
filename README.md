@@ -1,5 +1,7 @@
 # Express Delivery Eligibility
 
+[![CI](https://github.com/DavidBohorquez/industrialisation_ia_cloud/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/DavidBohorquez/industrialisation_ia_cloud/actions/workflows/ci.yml)
+
 Predicts whether an order can be delivered express (same day), as a decision aid alongside business rules.
 
 This project turns an experimental Jupyter notebook into a production-ready Python application. It is the practical work for the course *Industrialisation de l'IA dans le cloud* (YNOV Toulouse, M2 Data & IA).
@@ -133,6 +135,12 @@ Settings are read by `src/livraison_express/config.py` (`pydantic-settings`), in
 ├── requirements*.lock                # one install profile per file (generated from uv.lock)
 ├── scripts/update-locks.sh           # regenerates uv.lock and the requirements*.lock files
 ├── .github/workflows/ci.yml          # CI: lint, tests per install profile, lock files check
+├── .github/ISSUE_TEMPLATE/           # bug report and feature request forms (+ pull_request_template.md)
+├── CONTRIBUTING.md                   # how to report, set up, branch, commit and release
+├── SECURITY.md                       # supported versions, private vulnerability reporting
+├── CODE_OF_CONDUCT.md                # community rules (Contributor Covenant 3.0)
+├── CHANGELOG.md                      # notable changes per version (Keep a Changelog)
+├── LICENSE                           # MIT
 ├── src/livraison_express/
 │   ├── __main__.py                   # entry point: python -m livraison_express
 │   ├── cli.py                        # commands serve / train / predict / predict-batch
@@ -211,11 +219,25 @@ Decisions are recorded in `docs/adr/`:
 - [x] Template explanation (LLM-ready abstraction)
 - [x] Model card and MLflow experiment tracking
 - [ ] LLM explanation generator
+- [x] Continuous integration (GitHub Actions) and locked dependencies
+- [x] Collaboration files: license, contributing guide, security policy, code of conduct, changelog
+- [ ] Docker images and release pipeline
 - [ ] Production data source and environment
-- [ ] CI/CD and deployment
 
 ## Limitations
 
 - The dataset is synthetic; performance on real data may differ.
 - The model is a decision aid and must not replace business rules.
 - Explanations describe each feature's effect compared with an average order; they explain the model, not the real-world cause.
+
+## Contributing
+
+Bug reports, ideas and pull requests are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md) for the setup, the branching model and the checks a pull request must pass. Everyone taking part follows the [Code of Conduct](CODE_OF_CONDUCT.md). Notable changes are listed in [CHANGELOG.md](CHANGELOG.md).
+
+## Security
+
+Report vulnerabilities privately, never in a public issue: see [SECURITY.md](SECURITY.md).
+
+## License
+
+[MIT](LICENSE): you may use, copy, modify and distribute the code, including commercially, as long as the copyright and license notice stay with it. It comes without warranty.
