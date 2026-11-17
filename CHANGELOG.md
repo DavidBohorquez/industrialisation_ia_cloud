@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - A `train` extra for MLflow, and `dev` and `notebook` dependency groups.
 - A test that fails if the API or the CLI imports MLflow.
 - Docker: one multi-stage `Dockerfile` with `serve` (API), `train` and `test` targets, rootless and read-only containers, and a `docker-compose.yml` where the training job writes a model into a volume that the API reads. A CI job builds the images, trains a model and calls the API.
+- Release workflow: pushing a tag `vX.Y.Z` on `main` publishes the `serve` and `train` images on `ghcr.io` (`linux/amd64` and `linux/arm64`, tags `X.Y.Z`, `X.Y` and `latest`) and creates the GitHub release from this changelog.
 - Collaboration files: MIT license, contributing guide, security policy, code of conduct, issue and pull request templates, and this changelog.
 - ADR-0006 (branching and versioning), ADR-0007 (dependency management) and ADR-0008 (Docker images).
 

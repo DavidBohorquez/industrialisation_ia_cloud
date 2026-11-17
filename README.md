@@ -137,6 +137,24 @@ docker build --target test .       # run lint and tests inside the image
 - **Size:** the serving image is about 160 MB compressed (most of it scipy, pandas, numpy and scikit-learn). The final images only receive the virtual environment built in earlier stages: no pip cache, tests or build tools.
 - The CI job `docker image` runs these same steps on every pull request.
 
+### Published images
+
+Pushing a version tag `vX.Y.Z` on `main` runs `.github/workflows/release.yml`: it checks that the tag matches `pyproject.toml` and `CHANGELOG.md`, publishes both images on GitHub Container Registry for `linux/amd64` and `linux/arm64` (Apple Silicon), then creates the GitHub release with the changelog section.
+
+| Image | Tags |
+|---|---|
+| `ghcr.io/davidbohorquez/industrialisation_ia_cloud` (API) | `X.Y.Z`, `X.Y`, `latest` |
+| `ghcr.io/davidbohorquez/industrialisation_ia_cloud-train` (training job) | `X.Y.Z`, `X.Y`, `latest` |
+
+Run a released version without the source code:
+
+```bash
+docker volume create models
+docker run --rm -v models:/app/artifacts ghcr.io/davidbohorquez/industrialisation_ia_cloud-train:1.1.0
+docker run -d -p 127.0.0.1:8000:8000 -v models:/app/artifacts:ro --read-only \
+  ghcr.io/davidbohorquez/industrialisation_ia_cloud:1.1.0
+```
+
 ## Configuration
 
 Settings are read by `src/livraison_express/config.py` (`pydantic-settings`), in this priority order: environment variables, then a `.env` file at the project root, then the defaults below. Copy `.env.example` to `.env` to change them locally. Invalid values (e.g. `DECISION_THRESHOLD=abc`) stop the program at startup with a clear message.
@@ -160,7 +178,8 @@ Settings are read by `src/livraison_express/config.py` (`pydantic-settings`), in
 ├── uv.lock                           # exact versions of every dependency (generated)
 ├── requirements*.lock                # one install profile per file (generated from uv.lock)
 ├── scripts/update-locks.sh           # regenerates uv.lock and the requirements*.lock files
-├── .github/workflows/ci.yml          # CI: lint, tests per install profile, lock files check
+├── .github/workflows/ci.yml          # CI: lint, tests per install profile, lock files check, images
+├── .github/workflows/release.yml     # on a version tag: publish the images, create the release
 ├── .github/ISSUE_TEMPLATE/           # bug report and feature request forms (+ pull_request_template.md)
 ├── CONTRIBUTING.md                   # how to report, set up, branch, commit and release
 ├── SECURITY.md                       # supported versions, private vulnerability reporting
@@ -252,7 +271,7 @@ Decisions are recorded in `docs/adr/`:
 - [x] Continuous integration (GitHub Actions) and locked dependencies
 - [x] Collaboration files: license, contributing guide, security policy, code of conduct, changelog
 - [x] Docker images (test, train, serve) and docker-compose
-- [ ] Release pipeline (images published on each version tag)
+- [x] Release pipeline (images published on each version tag)
 - [ ] Production data source and environment
 
 ## Limitations
