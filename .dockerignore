@@ -1,0 +1,20 @@
+# Allow-list: the build context only contains what the Dockerfile copies.
+# Anything else (.env, .git, .venv, models, mlflow.db, notebooks, a file added later)
+# never reaches the builder, so it cannot end up in an image.
+*
+
+!pyproject.toml
+!README.md
+!LICENSE
+!requirements.lock
+!requirements-train.lock
+!requirements-dev.lock
+!src/
+!tests/
+!docs/openapi.json
+
+# Never caches or build leftovers, even inside the allowed folders.
+**/__pycache__
+**/*.pyc
+**/*.egg-info
+**/.pytest_cache

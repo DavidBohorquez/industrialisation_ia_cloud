@@ -1,0 +1,164 @@
+# Release: when a version tag vX.Y.Z is pushed (on the merge commit of a release into main,
+# ADR-0006), publish the serve and train images on GitHub Container Registry (ghcr.io) and
+# create the GitHub release from CHANGELOG.md.
+#
+#   git tag -a v1.1.0 -m "Release 1.1.0" && git push origin v1.1.0
+
+name: Release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+# Read-only by default; each job asks only for what it needs.
+permissions:
+  contents: read
+
+# Never two runs for the same tag; never cancel a release half-way.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # Fail before publishing anything if the tag breaks the rules of ADR-0006.
+  check:
+    name: release checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out the code (with history, to find main)
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Tag equals the version in pyproject.toml
+        run: |
+          version=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match version $version in pyproject.toml"
+            exit 1
+          fi
+
+      - name: CHANGELOG.md has a section for this version
+        run: |
+          if ! grep -q "^## \[${GITHUB_REF_NAME#v}\]" CHANGELOG.md; then
+            echo "::error::No '## [${GITHUB_REF_NAME#v}]' section in CHANGELOG.md"
+            exit 1
+          fi
+
+      # Pre-releases (v1.2.0-rc.1) may come from a release branch; final versions only from main.
+      - name: A final version is tagged on main
+        run: |
+          case "$GITHUB_REF_NAME" in
+            *-*) echo "Pre-release: any branch allowed" ;;
+            *) git merge-base --is-ancestor "$GITHUB_SHA" origin/main \
+                 || { echo "::error::$GITHUB_REF_NAME is not on main"; exit 1; } ;;
+          esac
+
+  images:
+    name: publish ${{ matrix.target }} image
+    needs: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      # Push to ghcr.io with the workflow's own short-lived token: no personal token to store.
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: serve
+            suffix: ""
+          - target: train
+            suffix: "-train"
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v7
+
+      # Registry names must be lowercase: DavidBohorquez -> davidbohorquez.
+      - name: Image name
+        run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}${{ matrix.suffix }}" >> "$GITHUB_ENV"
+
+      # Third-party actions are pinned to a commit (a tag can be moved, a commit cannot).
+      # QEMU emulates arm64 on the amd64 runner, so the images also run natively on Apple Silicon.
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Log in to ghcr.io
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # vX.Y.Z -> tags X.Y.Z, X.Y and latest. A pre-release (vX.Y.Z-rc.1) only gets its own tag.
+      # Labels: source repository, commit (revision), creation date, version, license.
+      - name: Tags and labels
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+          labels: |
+            org.opencontainers.image.title=livraison-express-${{ matrix.target }}
+            org.opencontainers.image.licenses=MIT
+
+      - name: Build and push
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          target: ${{ matrix.target }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # Layer cache kept between releases in GitHub's cache, one scope per image.
+          cache-from: type=gha,scope=${{ matrix.target }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.target }}
+
+  github-release:
+    name: GitHub release
+    needs: images
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v7
+
+      - name: Release notes from CHANGELOG.md
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          # The lines after "## [X.Y.Z]", up to the next "## [" heading or the link
+          # definitions at the end of the file ("[1.0.0]: https://...").
+          awk -v heading="## [$version]" \
+            'index($0, heading) == 1 {found = 1; next}
+             found && (/^## \[/ || /^\[[^]]+\]: /) {exit}
+             found' \
+            CHANGELOG.md > notes.md
+          image="ghcr.io/${GITHUB_REPOSITORY,,}"
+          {
+            echo
+            echo "### Docker images"
+            echo
+            echo '```bash'
+            echo "docker pull $image:$version"
+            echo "docker pull $image-train:$version"
+            echo '```'
+          } >> notes.md
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          prerelease=""
+          case "$GITHUB_REF_NAME" in *-*) prerelease="--prerelease" ;; esac
+          gh release create "$GITHUB_REF_NAME" --verify-tag --title "$GITHUB_REF_NAME" \
+            --notes-file notes.md $prerelease

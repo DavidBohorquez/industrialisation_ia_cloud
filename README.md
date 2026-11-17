@@ -1,5 +1,7 @@
 # Express Delivery Eligibility
 
+[![CI](https://github.com/DavidBohorquez/industrialisation_ia_cloud/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/DavidBohorquez/industrialisation_ia_cloud/actions/workflows/ci.yml)
+
 Predicts whether an order can be delivered express (same day), as a decision aid alongside business rules.
 
 This project turns an experimental Jupyter notebook into a production-ready Python application. It is the practical work for the course *Industrialisation de l'IA dans le cloud* (YNOV Toulouse, M2 Data & IA).
@@ -26,10 +28,25 @@ Requirements: Python 3.13+.
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install -r requirements-dev.txt    # tests and notebook tools (includes requirements.txt)
-pip install -e .                       # installs the livraison_express package in editable mode
+pip install -r requirements-train.lock -r requirements-dev.lock  # app, training and test tools
+pip install --no-deps -e .             # the livraison_express package, editable
 python -m livraison_express train      # train model MODEL_VERSION (needed once)
 ```
+
+Add `-r requirements-notebook.lock` to the first `pip install` to run the notebook.
+
+### Dependencies
+
+`pyproject.toml` lists compatible version ranges. The `*.lock` files, generated from `uv.lock`, pin the exact versions (with hashes) that every environment installs, one file per install profile:
+
+| File | Contents | Used by |
+|---|---|---|
+| `requirements.lock` | API, CLI, predictions | serving |
+| `requirements-train.lock` | serving + `train` extra (MLflow) | training job |
+| `requirements-dev.lock` | `dev` group: pytest, ruff, httpx2 | tests and lint |
+| `requirements-notebook.lock` | `notebook` group: jupyter, matplotlib, seaborn | notebook |
+
+To change a dependency, edit `pyproject.toml`, run `scripts/update-locks.sh` (needs [uv](https://docs.astral.sh/uv/)) and commit `pyproject.toml`, `uv.lock` and the `*.lock` files together. CI fails when they are out of sync.
 
 ## HTTP API
 
@@ -94,6 +111,50 @@ python -m pytest                                                         # run t
 ruff check .                                                             # lint (rules in pyproject.toml)
 ```
 
+## Run with Docker
+
+Two images built from one `Dockerfile` ([ADR-0008](docs/adr/0008-docker-images.md)): `train` writes a model into a volume, `serve` (the API) reads it.
+
+```bash
+docker compose run --rm train      # train MODEL_VERSION into the "models" volume (once per version)
+docker compose up -d api           # API on http://127.0.0.1:8000 (Swagger UI: /docs)
+docker compose logs -f api         # follow the logs
+docker compose down                # stop (add --volumes to delete the models and MLflow runs)
+docker build --target test .       # run lint and tests inside the image
+```
+
+```
+                 docker compose run --rm train          docker compose up -d api
+                 ┌──────────────────────────┐           ┌──────────────────────────┐
+                 │ train image (+ mlflow)   │  writes   │ serve image (no mlflow)  │──► 127.0.0.1:8000
+                 │ python -m ... train      │ ───────►  │ python -m ... serve      │
+                 └──────────────────────────┘ "models"  └──────────────────────────┘
+                                               volume      reads it read-only
+```
+
+- **Settings** come from environment variables, e.g. `MODEL_VERSION=1.1.0 docker compose run --rm train`. Compose also reads a `.env` file next to `docker-compose.yml`; no `.env` is ever copied into an image.
+- **Security:** the containers run as a non-root user (uid 10001); the API has a read-only filesystem, a read-only model volume, no Linux capabilities, and only port 8000, published on `127.0.0.1`.
+- **Size:** the serving image is about 160 MB compressed (most of it scipy, pandas, numpy and scikit-learn). The final images only receive the virtual environment built in earlier stages: no pip cache, tests or build tools.
+- The CI job `docker image` runs these same steps on every pull request.
+
+### Published images
+
+Pushing a version tag `vX.Y.Z` on `main` runs `.github/workflows/release.yml`: it checks that the tag matches `pyproject.toml` and `CHANGELOG.md`, publishes both images on GitHub Container Registry for `linux/amd64` and `linux/arm64` (Apple Silicon), then creates the GitHub release with the changelog section.
+
+| Image | Tags |
+|---|---|
+| `ghcr.io/davidbohorquez/industrialisation_ia_cloud` (API) | `X.Y.Z`, `X.Y`, `latest` |
+| `ghcr.io/davidbohorquez/industrialisation_ia_cloud-train` (training job) | `X.Y.Z`, `X.Y`, `latest` |
+
+Run a released version without the source code:
+
+```bash
+docker volume create models
+docker run --rm -v models:/app/artifacts ghcr.io/davidbohorquez/industrialisation_ia_cloud-train:1.1.0
+docker run -d -p 127.0.0.1:8000:8000 -v models:/app/artifacts:ro --read-only \
+  ghcr.io/davidbohorquez/industrialisation_ia_cloud:1.1.0
+```
+
 ## Configuration
 
 Settings are read by `src/livraison_express/config.py` (`pydantic-settings`), in this priority order: environment variables, then a `.env` file at the project root, then the defaults below. Copy `.env.example` to `.env` to change them locally. Invalid values (e.g. `DECISION_THRESHOLD=abc`) stop the program at startup with a clear message.
@@ -113,7 +174,21 @@ Settings are read by `src/livraison_express/config.py` (`pydantic-settings`), in
 
 ```
 .
-├── pyproject.toml                    # package definition (pip install -e .)
+├── pyproject.toml                    # package definition, dependency ranges (pip install --no-deps -e .)
+├── uv.lock                           # exact versions of every dependency (generated)
+├── requirements*.lock                # one install profile per file (generated from uv.lock)
+├── scripts/update-locks.sh           # regenerates uv.lock and the requirements*.lock files
+├── .github/workflows/ci.yml          # CI: lint, tests per install profile, lock files check, images
+├── .github/workflows/release.yml     # on a version tag: publish the images, create the release
+├── .github/ISSUE_TEMPLATE/           # bug report and feature request forms (+ pull_request_template.md)
+├── CONTRIBUTING.md                   # how to report, set up, branch, commit and release
+├── SECURITY.md                       # supported versions, private vulnerability reporting
+├── CODE_OF_CONDUCT.md                # community rules (Contributor Covenant 3.0)
+├── CHANGELOG.md                      # notable changes per version (Keep a Changelog)
+├── LICENSE                           # MIT
+├── Dockerfile                        # multi-stage: test, train and serve images
+├── .dockerignore                     # allow-list of the files the images may contain
+├── docker-compose.yml                # train job + API sharing a model volume
 ├── src/livraison_express/
 │   ├── __main__.py                   # entry point: python -m livraison_express
 │   ├── cli.py                        # commands serve / train / predict / predict-batch
@@ -178,6 +253,9 @@ Decisions are recorded in `docs/adr/`:
 - [ADR-0003](docs/adr/0003-http-api.md): HTTP API, OpenAPI contract and explanations
 - [ADR-0004](docs/adr/0004-mlflow-tracking-and-model-card.md): MLflow experiment tracking and model card
 - [ADR-0005](docs/adr/0005-align-with-correction.md): orders as dicts in an `OrderRepository`, learning classes aligned with the course correction
+- [ADR-0006](docs/adr/0006-branching-model.md): GitFlow branches, semantic version tags and Docker image tags
+- [ADR-0007](docs/adr/0007-dependency-management.md): dependency ranges, `train` extra, dev/notebook groups, `uv.lock` exported to one lock file per install profile, CI per profile
+- [ADR-0008](docs/adr/0008-docker-images.md): one multi-stage Dockerfile for the train and serve images, the model in a volume, rootless and read-only containers
 
 ## Status
 
@@ -190,11 +268,26 @@ Decisions are recorded in `docs/adr/`:
 - [x] Template explanation (LLM-ready abstraction)
 - [x] Model card and MLflow experiment tracking
 - [ ] LLM explanation generator
+- [x] Continuous integration (GitHub Actions) and locked dependencies
+- [x] Collaboration files: license, contributing guide, security policy, code of conduct, changelog
+- [x] Docker images (test, train, serve) and docker-compose
+- [x] Release pipeline (images published on each version tag)
 - [ ] Production data source and environment
-- [ ] CI/CD and deployment
 
 ## Limitations
 
 - The dataset is synthetic; performance on real data may differ.
 - The model is a decision aid and must not replace business rules.
 - Explanations describe each feature's effect compared with an average order; they explain the model, not the real-world cause.
+
+## Contributing
+
+Bug reports, ideas and pull requests are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md) for the setup, the branching model and the checks a pull request must pass. Everyone taking part follows the [Code of Conduct](CODE_OF_CONDUCT.md). Notable changes are listed in [CHANGELOG.md](CHANGELOG.md).
+
+## Security
+
+Report vulnerabilities privately, never in a public issue: see [SECURITY.md](SECURITY.md).
+
+## License
+
+[MIT](LICENSE): you may use, copy, modify and distribute the code, including commercially, as long as the copyright and license notice stay with it. It comes without warranty.

@@ -1,0 +1,54 @@
+# Runs the two images locally: the training job writes a model into the "models" volume,
+# the API reads it (ADR-0008).
+#
+#   docker compose run --rm train      train MODEL_VERSION into the volume (once per version)
+#   docker compose up -d api           serve it: http://127.0.0.1:8000/docs
+#   docker compose logs -f api         follow the logs
+#   docker compose down                stop (add --volumes to delete the models and MLflow runs)
+#
+# Settings come from the environment (or from a .env file next to this one, read by Compose
+# for the ${...} values below); nothing is baked into the images.
+name: livraison-express
+
+services:
+  api:
+    build:
+      context: .
+      target: serve
+    image: livraison-express:local
+    ports:
+      # 127.0.0.1: reachable from this machine only, not from the local network.
+      - "127.0.0.1:8000:8000"
+    environment:
+      MODEL_VERSION: ${MODEL_VERSION:-1.0.0}
+      DECISION_THRESHOLD: ${DECISION_THRESHOLD:-0.5}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    volumes:
+      # Read-only: the API never writes models, so a compromised API cannot plant one.
+      - models:/app/artifacts:ro
+    # Hardening: read-only root filesystem, no Linux capabilities, no privilege escalation.
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+
+  train:
+    build:
+      context: .
+      target: train
+    image: livraison-express-train:local
+    # Not started by `docker compose up`: run on demand with `docker compose run --rm train`.
+    profiles: [train]
+    environment:
+      MODEL_VERSION: ${MODEL_VERSION:-1.0.0}
+      RANDOM_STATE: ${RANDOM_STATE:-42}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    volumes:
+      - models:/app/artifacts
+      - mlruns:/app/mlruns
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+
+volumes:
+  models:
+  mlruns:
