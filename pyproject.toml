@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "livraison-express"
-version = "1.0.0"
+version = "1.1.0"
 description = "Prédiction d'éligibilité d'une commande à la livraison express"
 readme = "README.md"
 license = "MIT"
