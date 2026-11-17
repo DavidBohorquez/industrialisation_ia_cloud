@@ -1,0 +1,45 @@
+name: Bug report
+description: Something does not work as documented.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Security problem? Do not open an issue: follow [SECURITY.md](https://github.com/DavidBohorquez/industrialisation_ia_cloud/blob/develop/SECURITY.md).
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Application version (git tag or Docker image tag), and the model version if relevant.
+      placeholder: app 1.1.0, model 1.0.0
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Commands, HTTP request or input file, so that someone else gets the same result.
+      placeholder: |
+        1. docker compose run --rm train
+        2. curl -X POST http://127.0.0.1:8000/v1/predictions -d @examples/order.json
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+      description: Include the error message or the relevant logs.
+      render: text
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: macOS 15, Python 3.13 (or Docker image)
