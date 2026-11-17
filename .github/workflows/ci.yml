@@ -115,3 +115,40 @@ jobs:
 
       - name: Fail if they changed
         run: git diff --exit-code
+
+  # The images built and used the way a user would: tests inside the image, a training job
+  # writing a model into a volume, then the API serving it (ADR-0008).
+  docker:
+    name: docker image
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v7
+
+      - name: Run lint and tests inside the image
+        run: docker build --target test .
+
+      - name: Build the train and serve images
+        run: docker compose --profile train build
+
+      - name: Train a model into the volume
+        run: docker compose run --rm train
+
+      # --wait: returns once the container's HEALTHCHECK reports healthy (or fails).
+      - name: Start the API
+        run: docker compose up --detach --wait api
+
+      - name: Smoke test
+        run: |
+          curl --fail-with-body --silent --show-error http://127.0.0.1:8000/health/ready
+          curl --fail-with-body --silent --show-error -X POST http://127.0.0.1:8000/v1/predictions \
+            -H "Content-Type: application/json" -d @examples/order.json
+
+      - name: Show the logs
+        if: failure()
+        run: docker compose logs
+
+      - name: Stop and delete the containers and volumes
+        if: always()
+        run: docker compose --profile train down --volumes
