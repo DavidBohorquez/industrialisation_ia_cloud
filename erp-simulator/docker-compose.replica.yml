@@ -1,0 +1,96 @@
+# Réplique PostgreSQL en lecture seule pour les équipes data (cours, diapo 20 ; ADR-0009).
+#
+# Fichier de surcharge : il s'ajoute à docker-compose.erp.yml sans le modifier.
+#
+#   ERP ──► postgres (primaire, production)
+#               │ réplication physique en streaming (rôle replicator, asynchrone)
+#               ▼
+#           postgres-replica (hot standby, lecture seule) ──► application (ml_reader)
+#           alias « erp-postgres » sur le réseau livraison-net
+#
+# Démarrer (depuis erp-simulator/) :
+#
+#   docker network create livraison-net 2>/dev/null || true   # une fois, réseau partagé
+#   docker compose -f docker-compose.erp.yml -f docker-compose.replica.yml up -d --build --wait
+#
+# L'application lit la réplique, jamais le primaire :
+#   POSTGRES_DSN=postgresql://ml_reader:ml_reader@erp-postgres:5432/livraison_express
+#   (depuis un conteneur sur livraison-net ; depuis l'hôte : 127.0.0.1:${POSTGRES_REPLICA_PORT:-5433})
+#
+# Vérifier :
+#   docker compose -f docker-compose.erp.yml -f docker-compose.replica.yml exec postgres-replica \
+#     psql -U livraison -d livraison_express -c 'SELECT pg_is_in_recovery(), count(*) FROM orders'
+#
+# Volume du primaire créé AVANT ce fichier : les scripts d'initialisation ne tournent
+# qu'une fois, le rôle replicator n'existe donc pas. Le créer sans perdre les données :
+#   docker compose -f docker-compose.erp.yml -f docker-compose.replica.yml up -d postgres
+#   docker compose -f docker-compose.erp.yml -f docker-compose.replica.yml exec -u postgres \
+#     postgres /docker-entrypoint-initdb.d/02-replication.sh
+#
+# Recloner la réplique (par exemple après un arrêt plus long que la rétention des WAL
+# du primaire : pas de slot de réplication, voir ADR-0009) :
+#   docker compose -f docker-compose.erp.yml -f docker-compose.replica.yml rm -sf postgres-replica
+#   docker volume rm <projet>_postgres_replica_data
+#
+# Variables : POSTGRES_REPLICA_PORT (port hôte, 5433 par défaut),
+# POSTGRES_REPLICATION_PASSWORD (mot de passe du rôle replicator, « replicator » en test).
+# Nécessite Docker Compose 2.24.4 ou plus récent (balise !override).
+
+services:
+  postgres:
+    environment:
+      REPLICATION_USER: replicator
+      REPLICATION_PASSWORD: ${POSTGRES_REPLICATION_PASSWORD:-replicator}
+    volumes:
+      - ./docker/erp/02-replication.sh:/docker-entrypoint-initdb.d/02-replication.sh:ro
+    # Le primaire reste sur le réseau du projet uniquement : même si le fichier de base
+    # le place un jour sur livraison-net sous l'alias erp-postgres, !override l'en retire,
+    # sinon le DNS de Docker répartirait « erp-postgres » entre primaire et réplique.
+    # L'alias erp-postgres-primary est unique : la réplique ne peut pas confondre son
+    # primaire avec un autre service « postgres » (Airflow en a un, par exemple).
+    networks: !override
+      default:
+        aliases:
+          - erp-postgres-primary
+
+  postgres-replica:
+    image: postgres:17-alpine
+    user: postgres
+    entrypoint: ["sh", "/usr/local/bin/replica-entrypoint.sh"]
+    environment:
+      # Sous-dossier du volume : le clone y est renommé de façon atomique.
+      PGDATA: /var/lib/postgresql/data/pgdata
+      PRIMARY_HOST: erp-postgres-primary
+      PRIMARY_PORT: 5432
+      REPLICATION_USER: replicator
+      REPLICATION_PASSWORD: ${POSTGRES_REPLICATION_PASSWORD:-replicator}
+    ports:
+      - "127.0.0.1:${POSTGRES_REPLICA_PORT:-5433}:5432"
+    volumes:
+      - postgres_replica_data:/var/lib/postgresql/data
+      - ./docker/erp/replica-entrypoint.sh:/usr/local/bin/replica-entrypoint.sh:ro
+    # Sain = accepte les requêtes ET reste en standby. Le streaming n'est pas exigé :
+    # si le primaire tombe, la réplique continue de servir des lectures (disponibilité
+    # plutôt que cohérence, théorème CAP).
+    healthcheck:
+      test: ["CMD-SHELL", "psql -U livraison -d livraison_express -tAc 'SELECT pg_is_in_recovery()' | grep -qx t"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      default:
+      livraison-net:
+        aliases:
+          - erp-postgres
+
+volumes:
+  postgres_replica_data:
+
+networks:
+  livraison-net:
+    name: livraison-net
+    external: true

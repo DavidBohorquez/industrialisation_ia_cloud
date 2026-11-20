@@ -16,7 +16,7 @@ EXAMPLE_ORDER = {
     "carrier_capacity": 0.85,
     "weather": "normal",
     "delivery_zone": "centre",
-    "customer_type": "premium",
+    "customer_type": "particulier",
 }
 
 
@@ -32,9 +32,13 @@ class OrderRequest(BaseModel):
     stock_available: int = Field(ge=0, le=1, description="1 if every item is in stock.")
     preparation_time_min: float = Field(ge=0, description="Estimated preparation time in minutes.")
     carrier_capacity: float = Field(ge=0, le=1, description="Share of carrier capacity still free (0-1).")
-    weather: Weather
-    delivery_zone: DeliveryZone
-    customer_type: CustomerType
+    weather: Weather = Field(
+        description="Weather for the delivery. 'vent' = strong wind without a storm, 'orage' = storm."
+    )
+    delivery_zone: DeliveryZone = Field(description="'banlieue' = any suburb, near or far.")
+    customer_type: CustomerType = Field(
+        description="'particulier' = individual customer (B2C), 'professionnel' = business (B2B)."
+    )
 
     @model_validator(mode="after")
     def weekend_matches_day(self) -> "OrderRequest":

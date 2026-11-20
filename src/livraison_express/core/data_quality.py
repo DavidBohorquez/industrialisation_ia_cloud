@@ -1,6 +1,6 @@
 import pandas as pd
 
-from livraison_express.core.features import FEATURE_COLUMNS, TARGET_COLUMN
+from livraison_express.core.features import CATEGORY_VALUES, FEATURE_COLUMNS, TARGET_COLUMN
 
 REQUIRED_COLUMNS = {"order_id", "order_date", *FEATURE_COLUMNS, TARGET_COLUMN}
 
@@ -50,6 +50,24 @@ def validate_dataset(df: pd.DataFrame) -> None:
         raise ValueError(
             "La variable stock_available doit contenir uniquement 0 ou 1."
         )
+
+    check_categories(df)
+
+
+def check_categories(df: pd.DataFrame) -> None:
+    """Rejects category values outside the canonical vocabulary (ADR-0011).
+
+    Such a value means a source adapter or an input file uses another vocabulary. The model's
+    encoder would silently ignore it, so the order would be scored as if the field were absent.
+    Missing values are allowed: the pipeline imputes them.
+    """
+    for column, allowed in CATEGORY_VALUES.items():
+        present = df[column].dropna()
+        unknown = sorted(set(present[~present.isin(allowed)]), key=str)
+        if unknown:
+            raise ValueError(
+                f"Unknown values in {column}: {unknown} (allowed: {', '.join(allowed)})."
+            )
 
 
 def clean_orders_data(df: pd.DataFrame) -> pd.DataFrame:

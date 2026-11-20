@@ -1,0 +1,75 @@
+# Test environment (TP4 deliverable 5): the whole chain on one machine, with fake ERP data.
+#
+#   ERP simulator ──> PostgreSQL primary ──streaming──> read replica ──(ml_reader)──> train ──> models volume ──> api
+#                 └─> MongoDB (analytics, not read by the application)
+#
+# The ERP stack and its replica are included unchanged from erp-simulator/ (ADR-0009, ADR-0010);
+# this file only adds the application, built from the working tree.
+#
+#   docker network create livraison-net                    once: shared with Airflow (ADR-0014)
+#   docker compose -f docker-compose.test.yml up -d --build --wait postgres postgres-replica mongodb
+#   docker compose -f docker-compose.test.yml up -d erp-simulator       fills the databases, then streams
+#   docker compose -f docker-compose.test.yml run --rm train            trains on the labelled ERP orders
+#   docker compose -f docker-compose.test.yml up -d --wait api          http://127.0.0.1:8001/docs
+#   docker compose -f docker-compose.test.yml --profile train down -v   delete everything
+#
+# Simulator settings (POSTGRES_HISTORY_ORDERS, LIVE_ORDER_LIMIT, LABEL_DELAY_DAYS, ...) and
+# MODEL_VERSION come from the environment. The production file is docker-compose.prod.yml.
+name: livraison-express-test
+
+include:
+  - path:
+      - erp-simulator/docker-compose.erp.yml
+      - erp-simulator/docker-compose.replica.yml
+
+x-hardening: &hardening
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+
+services:
+  train:
+    <<: *hardening
+    build:
+      context: .
+      target: train
+    image: livraison-express-train:local
+    # Not started by `up`: a one-off job, `run --rm train`.
+    profiles: [train]
+    environment:
+      ORDER_SOURCE: postgres
+      # The replica answers as erp-postgres on livraison-net; the primary is not reachable there.
+      POSTGRES_DSN: postgresql://ml_reader:${ML_READER_PASSWORD:-ml_reader}@erp-postgres:5432/livraison_express
+      MODEL_VERSION: ${MODEL_VERSION:-2.0.0}
+      RANDOM_STATE: ${RANDOM_STATE:-42}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    volumes:
+      - models:/app/artifacts
+      - mlruns:/app/mlruns
+    networks: [livraison-net]
+    depends_on:
+      postgres-replica:
+        condition: service_healthy
+
+  api:
+    <<: *hardening
+    build:
+      context: .
+      target: serve
+    image: livraison-express:local
+    ports:
+      # 8001: the local docker-compose.yml already uses 8000.
+      - "127.0.0.1:${TEST_API_PORT:-8001}:8000"
+    environment:
+      MODEL_VERSION: ${MODEL_VERSION:-2.0.0}
+      DECISION_THRESHOLD: ${DECISION_THRESHOLD:-0.5}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    volumes:
+      - models:/app/artifacts:ro
+    read_only: true
+
+volumes:
+  # Explicit names: the Airflow DAG mounts the same volumes to retrain (ADR-0014).
+  models:
+    name: livraison-express-test_models
+  mlruns:
+    name: livraison-express-test_mlruns
