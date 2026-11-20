@@ -149,6 +149,32 @@ docker build --target test .       # run lint and tests inside the image
 - **Size:** the serving image is about 160 MB compressed (most of it scipy, pandas, numpy and scikit-learn). The final images only receive the virtual environment built in earlier stages: no pip cache, tests or build tools.
 - The CI job `docker image` runs these same steps on every pull request.
 
+### Environments: local, test, production
+
+| File | Orders come from | Images | Use |
+|---|---|---|---|
+| `docker-compose.yml` | generated in memory (`ORDER_SOURCE=memory`) | built locally | develop, CI |
+| `docker-compose.test.yml` | the ERP simulator's PostgreSQL **read replica** (`ml_reader`) | built locally | test the whole chain with fake ERP data |
+| `docker-compose.prod.yml` | the company's read replica, `POSTGRES_DSN` from `.env.prod` | released on ghcr.io | production |
+
+```
+ test:   ERP simulator ──> PostgreSQL primary ──streaming──> replica (erp-postgres) ──ml_reader──> train ──> models ──> api :8001
+ prod:   company ERP ───> PostgreSQL primary ──────────────> replica ─────────── POSTGRES_DSN ──> train ──> models ──> api :8000
+```
+
+Test environment, step by step:
+
+```bash
+docker network create livraison-net                                   # once (shared with Airflow)
+docker compose -f docker-compose.test.yml up -d --build --wait postgres postgres-replica mongodb
+docker compose -f docker-compose.test.yml up -d erp-simulator         # history, then a live batch every 5 s
+docker compose -f docker-compose.test.yml run --rm train              # trains MODEL_VERSION on labelled ERP orders
+docker compose -f docker-compose.test.yml up -d --wait api            # http://127.0.0.1:8001/docs
+docker compose -f docker-compose.test.yml --profile train down -v     # delete everything
+```
+
+Production: `cp .env.prod.example .env.prod`, fill it in, then `docker compose -f docker-compose.prod.yml --env-file .env.prod run --rm train` and `... up -d --wait api`. Nothing is built and no database runs there; missing settings stop Compose with a message.
+
 ### Published images
 
 Pushing a version tag `vX.Y.Z` on `main` runs `.github/workflows/release.yml`: it checks that the tag matches `pyproject.toml` and `CHANGELOG.md`, publishes both images on GitHub Container Registry for `linux/amd64` and `linux/arm64` (Apple Silicon), then creates the GitHub release with the changelog section.
@@ -316,7 +342,7 @@ Decisions are recorded in `docs/adr/`:
 - [x] Collaboration files: license, contributing guide, security policy, code of conduct, changelog
 - [x] Docker images (test, train, serve) and docker-compose
 - [x] Release pipeline (images published on each version tag)
-- [ ] Production data source and environment
+- [x] ERP data source (PostgreSQL read replica) and test / production compose files
 
 ## Limitations
 

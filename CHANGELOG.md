@@ -20,6 +20,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `psycopg[binary]` dependency (PostgreSQL driver), imported only when `ORDER_SOURCE=postgres`.
 - Tests marked `postgres`, skipped unless `TEST_POSTGRES_DSN` is set, and a CI job `postgres tests` that runs them against a PostgreSQL 17 service container.
 - ADR-0012 (read-only `OrderReader`) and ADR-0013 (one setting per dependency).
+- `docker-compose.test.yml`: the whole chain with fake ERP data (simulator, PostgreSQL primary and replica, MongoDB, training job reading the replica as `ml_reader`, API on port 8001).
+- `docker-compose.prod.yml` and `.env.prod.example`: the released images only, training from the company's read replica (`POSTGRES_DSN`), resource limits and log rotation; required settings fail fast.
 
 ### Changed
 
