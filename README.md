@@ -267,6 +267,7 @@ Decisions are recorded in `docs/adr/`:
 - [ADR-0008](docs/adr/0008-docker-images.md): one multi-stage Dockerfile for the train and serve images, the model in a volume, rootless and read-only containers
 - [ADR-0009](docs/adr/0009-read-orders-from-postgres-replica.md): orders read from PostgreSQL (full history) through a read-only role on a streaming replica, never the production primary; MongoDB as fallback
 - [ADR-0010](docs/adr/0010-labels-in-the-erp-simulator.md): the order outcome (`express_eligible`) simulated in the ERP simulator with the course heuristic, revealed after a simulated delay
+- [ADR-0011](docs/adr/0011-canonical-vocabulary-and-source-adapters.md): the application's own category vocabulary, adjusted so every source maps into it, and one adapter per source in `infrastructure/`
 
 ## Status
 
