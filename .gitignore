@@ -21,6 +21,10 @@ mlflow.db
 mlruns/
 notebooks/mlruns/
 
+# Airflow (orchestration/airflow): task logs, and the airflow.cfg that airflow-init generates
+orchestration/airflow/logs/
+orchestration/airflow/config/airflow.cfg
+
 # Secrets and local settings (.env.example documents the keys and is committed)
 .env
 .env.*

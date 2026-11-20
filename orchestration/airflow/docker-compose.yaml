@@ -1,3 +1,43 @@
+# livraison-express: Airflow orchestration of the model retraining (ADR-0014).
+#
+#   cp .env.example .env                  required: this file reads .env (see env_file below)
+#   docker compose up airflow-init        once: database migration + admin account
+#   docker compose up -d --wait           start Airflow, return once every service is healthy
+#   open http://127.0.0.1:8080            UI (login: _AIRFLOW_WWW_USER_* from .env)
+#   docker compose down                   stop (add -v to delete Airflow's database)
+#
+# This is the official file of Airflow 3.4.0, CeleryExecutor (scheduler, dag-processor,
+# api-server, triggerer, Celery worker, Redis broker, PostgreSQL metadata database):
+#   https://airflow.apache.org/docs/apache-airflow/3.4.0/docker-compose.yaml
+#   original sha256: ac8c8f2d6e7aaa2ddc069d1ac3eefee3cb975285c08860896bf8d75ea2010f12
+# Diff against upstream: curl -Lfs <url above> | diff - docker-compose.yaml
+#
+# Changes, each marked "livraison-express:" below (Apache-2.0 section 4b: modified file):
+#   1. name: airflow-tp4                  fixed Compose project name (containers, volume names).
+#   2. AIRFLOW__CORE__LOAD_EXAMPLES       'false': only our DAG in the UI.
+#   3. AIRFLOW_CONN_ERP_POSTGRES          connection "erp_postgres" to the ERP database, read-only
+#                                         role ml_reader (password ML_READER_PASSWORD, test default).
+#   4. ports                              api-server and flower bound to 127.0.0.1 (this machine
+#                                         only), as in the project's root docker-compose.yml.
+#   5. airflow-worker only (the Celery worker is the process that runs the tasks):
+#      a. /var/run/docker.sock mounted    the DockerOperator asks the host's Docker engine to
+#                                         start the training image. Access to this socket is
+#                                         root-equivalent on the host: whoever controls a DAG
+#                                         controls the machine. Acceptable on a developer
+#                                         machine; in the cloud, run the training image as a
+#                                         Kubernetes pod (KubernetesPodOperator) or a managed
+#                                         job instead, without any Docker socket.
+#      b. volumes repeated                YAML merge (<<) replaces lists, it does not extend
+#                                         them: the four common volumes are listed again.
+#      c. group_add DOCKER_GID            Linux: the socket belongs to the "docker" group, which
+#                                         the airflow user (group 0) is not in. Docker Desktop:
+#                                         the socket is root:root 0660, group 0 is enough.
+#      d. networks default + livraison-net  the external network of the ERP stack, so that
+#                                         the SQL check reaches host erp-postgres. Only the
+#                                         worker joins it: the metadata database's service
+#                                         name "postgres" would clash on a shared network.
+#   6. networks: livraison-net (external) created by the ERP/test stack, never by this file.
+#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -44,6 +84,9 @@
 #
 # Feel free to modify this file to suit your needs.
 ---
+# livraison-express (1): fixed project name, whatever the folder is called.
+name: airflow-tp4
+
 x-airflow-common:
   &airflow-common
   # In order to add custom dependencies or upgrade provider distributions you can use your extended image.
@@ -62,7 +105,8 @@ x-airflow-common:
     AIRFLOW__CELERY__BROKER_URL: redis://:@redis:6379/0
     AIRFLOW__CORE__FERNET_KEY: ${FERNET_KEY}
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
-    AIRFLOW__CORE__LOAD_EXAMPLES: 'true'
+    # livraison-express (2): no example DAGs.
+    AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
     AIRFLOW__CORE__EXECUTION_API_SERVER_URL: 'http://airflow-apiserver:8080/execution/'
     AIRFLOW__API_AUTH__JWT_SECRET: ${AIRFLOW__API_AUTH__JWT_SECRET:-airflow_jwt_secret}
     AIRFLOW__API_AUTH__JWT_ISSUER: ${AIRFLOW__API_AUTH__JWT_ISSUER:-airflow}
@@ -76,6 +120,10 @@ x-airflow-common:
     _PIP_ADDITIONAL_REQUIREMENTS: ${_PIP_ADDITIONAL_REQUIREMENTS:-}
     # The following line can be used to set a custom config file, stored in the local config folder
     AIRFLOW_CONFIG: '/opt/airflow/config/airflow.cfg'
+    # livraison-express (3): Airflow connection "erp_postgres", read by the DAG's SQL check and
+    # turned into POSTGRES_DSN for the training container. Read-only role on the read replica.
+    # A password with special characters (@ : / ...) must be URL-encoded here.
+    AIRFLOW_CONN_ERP_POSTGRES: 'postgresql://ml_reader:${ML_READER_PASSWORD:-ml_reader}@erp-postgres:5432/livraison_express'
   volumes:
     - ${AIRFLOW_PROJ_DIR:-.}/dags:/opt/airflow/dags
     - ${AIRFLOW_PROJ_DIR:-.}/logs:/opt/airflow/logs
@@ -123,7 +171,8 @@ services:
     <<: *airflow-common
     command: api-server
     ports:
-      - "8080:8080"
+      # livraison-express (4): reachable from this machine only.
+      - "127.0.0.1:8080:8080"
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8080/api/v2/monitor/health"]
       interval: 30s
@@ -181,6 +230,23 @@ services:
       # Required to handle warm shutdown of the celery workers properly
       # See https://airflow.apache.org/docs/docker-stack/entrypoint.html#signal-propagation
       DUMB_INIT_SETSID: "0"
+    # livraison-express (5b): the common volumes, repeated (YAML merge replaces lists)...
+    volumes:
+      - ${AIRFLOW_PROJ_DIR:-.}/dags:/opt/airflow/dags
+      - ${AIRFLOW_PROJ_DIR:-.}/logs:/opt/airflow/logs
+      - ${AIRFLOW_PROJ_DIR:-.}/config:/opt/airflow/config
+      - ${AIRFLOW_PROJ_DIR:-.}/plugins:/opt/airflow/plugins
+      # livraison-express (5a): ...plus the host's Docker socket, for the DockerOperator.
+      # Root-equivalent on the host (see the header); cloud: KubernetesPodOperator instead.
+      - /var/run/docker.sock:/var/run/docker.sock
+    # livraison-express (5c): Linux, group of the Docker socket (stat -c %g /var/run/docker.sock).
+    # Unset (Docker Desktop): 0, the group the airflow user already has.
+    group_add:
+      - "${DOCKER_GID:-0}"
+    # livraison-express (5d): Airflow's own network + the ERP network (host erp-postgres).
+    networks:
+      - default
+      - livraison-net
     restart: always
     depends_on:
       <<: *airflow-common-depends-on
@@ -320,7 +386,8 @@ services:
     profiles:
       - flower
     ports:
-      - "5555:5555"
+      # livraison-express (4): reachable from this machine only.
+      - "127.0.0.1:5555:5555"
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:5555/"]
       interval: 30s
@@ -335,3 +402,10 @@ services:
 
 volumes:
   postgres-db-volume:
+
+# livraison-express (6): network of the ERP stack (host erp-postgres), created outside this
+# file (by the test compose, or `docker network create livraison-net`). Compose refuses to start
+# the worker if it does not exist.
+networks:
+  livraison-net:
+    external: true
