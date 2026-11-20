@@ -1,6 +1,6 @@
 # ADR-0005: Align training and prediction with the course correction
 
-- **Status:** Accepted
+- **Status:** Accepted; amended by [ADR-0012](0012-read-only-order-reader.md) (`OrderReader` and `OrderWriter`) and [ADR-0013](0013-per-dependency-settings.md) (no environment profile)
 - **Date:** 2026-10-26
 - **Supersedes:** ADR-0001, and the "pipeline/training" and "prediction" rows of ADR-0002
 

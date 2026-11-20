@@ -1,3 +1,5 @@
+from typing import assert_never
+
 from livraison_express.abstractions.experiment_tracker import ExperimentTracker
 from livraison_express.abstractions.explanation_generator import ExplanationGenerator
 from livraison_express.abstractions.model_repository import ModelRepository
@@ -14,21 +16,24 @@ from livraison_express.infrastructure.dev.order_generator import generate_orders
 
 
 def build_order_reader(settings: Settings) -> OrderReader:
-    if settings.environment == "dev":
-        return InMemoryOrderRepository(generate_orders(random_state=settings.random_state))
+    """Where jobs read orders from, chosen by ORDER_SOURCE (ADR-0013)."""
+    match settings.order_source:
+        case "memory":
+            return InMemoryOrderRepository(generate_orders(random_state=settings.random_state))
+        case "postgres":
+            # Imported here: only jobs that read the ERP need psycopg, the API never imports it.
+            from livraison_express.infrastructure.postgres.postgres_order_reader import (
+                PostgresOrderReader,
+            )
 
-    raise ValueError(
-        f"Aucun stockage de commandes pour l'environnement '{settings.environment}'."
-    )
+            # Settings guarantee the DSN is set when the source is postgres.
+            return PostgresOrderReader(settings.postgres_dsn.get_secret_value())
+        case _:
+            assert_never(settings.order_source)
 
 
 def build_model_repository(settings: Settings) -> ModelRepository:
-    if settings.environment == "dev":
-        return FileModelRepository(settings.artifacts_dir)
-
-    raise ValueError(
-        f"Aucun stockage de modèle pour l'environnement '{settings.environment}'."
-    )
+    return FileModelRepository(settings.artifacts_dir)
 
 
 def build_predictor(settings: Settings) -> MLPredict:
