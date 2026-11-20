@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - A read-only PostgreSQL role `ml_reader` for the application, created by the simulator's init script.
 - `erp-simulator/docker-compose.replica.yml`: a read-only PostgreSQL replica (streaming hot standby, cloned with `pg_basebackup`) for the data team, added on top of `docker-compose.erp.yml`. On the shared `livraison-net` network it answers as `erp-postgres`, and the production primary is kept off that network.
 - ADR-0009: orders are read from PostgreSQL (full history) with a read-only role on a streaming replica, never on the production primary; MongoDB is the fallback if neither can be obtained.
+- Training and the command line (`predict`, `predict-batch`) reject category values outside the vocabulary with a message listing the allowed ones. Before, the model's encoder ignored them silently and scored the order as if the field were missing.
 
 ### Changed
 

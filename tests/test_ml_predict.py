@@ -20,6 +20,17 @@ def test_missing_feature_is_rejected(trained_model, valid_order):
         MLPredict(trained_model).predict_one(valid_order)
 
 
+def test_unknown_category_is_rejected_instead_of_ignored(trained_model, valid_order):
+    # The CLI does not go through the API's validation: an old input file must fail, not be
+    # scored as if customer_type were missing.
+    with pytest.raises(ValueError, match="customer_type"):
+        MLPredict(trained_model).predict_one({**valid_order, "customer_type": "premium"})
+
+    old_csv = pd.DataFrame([{**valid_order, "delivery_zone": "proche_banlieue"}])
+    with pytest.raises(ValueError, match="delivery_zone"):
+        MLPredict(trained_model).predict_batch(old_csv)
+
+
 def test_threshold_controls_the_decision(trained_model, valid_order):
     always_yes = MLPredict(trained_model, threshold=0).predict_one(valid_order)
     always_no = MLPredict(trained_model, threshold=1).predict_one(valid_order)
