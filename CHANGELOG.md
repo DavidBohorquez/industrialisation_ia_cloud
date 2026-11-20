@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `erp-simulator/src/erp_simulator/outcome.py`: simulates the `express_eligible` outcome with the course heuristic, translated to the ERP's values (assumptions in the simulator's README). Its tests run with the rest of the suite.
 - The ERP simulator writes `express_eligible` into PostgreSQL and MongoDB, revealed `LABEL_DELAY_DAYS` simulated days (default 2) after each order, and resumes its simulated clock after a restart ([ADR-0010](docs/adr/0010-labels-in-the-erp-simulator.md)).
 - A read-only PostgreSQL role `ml_reader` for the application, created by the simulator's init script.
+- `erp-simulator/docker-compose.replica.yml`: a read-only PostgreSQL replica (streaming hot standby, cloned with `pg_basebackup`) for the data team, added on top of `docker-compose.erp.yml`. On the shared `livraison-net` network it answers as `erp-postgres`, and the production primary is kept off that network.
 
 ### Changed
 
