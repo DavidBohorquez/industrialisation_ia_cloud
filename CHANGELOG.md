@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- `erp-simulator/`: the course ERP simulator (TP4) that fills PostgreSQL and MongoDB, with the fixes it needed to build and start (listed in its README).
+- `erp-simulator/src/erp_simulator/outcome.py`: simulates the `express_eligible` outcome with the course heuristic, translated to the ERP's values (assumptions in the simulator's README). Its tests run with the rest of the suite.
+- The ERP simulator writes `express_eligible` into PostgreSQL and MongoDB, revealed `LABEL_DELAY_DAYS` simulated days (default 2) after each order, and resumes its simulated clock after a restart ([ADR-0010](docs/adr/0010-labels-in-the-erp-simulator.md)).
+- A read-only PostgreSQL role `ml_reader` for the application, created by the simulator's init script.
+- `erp-simulator/docker-compose.replica.yml`: a read-only PostgreSQL replica (streaming hot standby, cloned with `pg_basebackup`) for the data team, added on top of `docker-compose.erp.yml`. On the shared `livraison-net` network it answers as `erp-postgres`, and the production primary is kept off that network.
+- ADR-0009: orders are read from PostgreSQL (full history) with a read-only role on a streaming replica, never on the production primary; MongoDB is the fallback if neither can be obtained.
+
 ### Changed
 
 - README: `docker compose up -d --wait api` returns once the API is healthy, and the `docker run` instructions show how to wait for the `(healthy)` status before calling the API.
