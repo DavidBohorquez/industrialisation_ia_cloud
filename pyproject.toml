@@ -19,6 +19,10 @@ dependencies = [
     "joblib>=1.6,<2",
     "numpy>=2.5,<3",
     "pandas>=3.0,<4",
+    # Reads orders from the ERP's PostgreSQL (ORDER_SOURCE=postgres): the training job and future
+    # scoring jobs. Imported only by factory.build_order_reader, never by the API. [binary]
+    # bundles libpq, so the images need no system package.
+    "psycopg[binary]>=3.3,<4",
     "pydantic>=2.14,<3",
     "pydantic-settings>=2.16,<3",
     # Minor bound: a model saved with one scikit-learn minor version may not load with another,
@@ -42,7 +46,10 @@ where = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["tests", "erp-simulator/tests"]
 addopts = ["--strict-markers"]
-markers = ["training: needs the train extra (mlflow); skipped by the serving CI job"]
+markers = [
+    "training: needs the train extra (mlflow); skipped by the serving CI job",
+    "postgres: needs a PostgreSQL server (TEST_POSTGRES_DSN); skipped when it is not set",
+]
 
 [tool.ruff]
 target-version = "py313"

@@ -90,6 +90,57 @@ jobs:
       - name: Test (pytest)
         run: pytest ${{ matrix.pytest-args }}
 
+  # The PostgreSQL order reader against a real server (ADR-0012). The `tests` jobs skip these
+  # tests: they have no database. Here a throwaway PostgreSQL runs next to the job; each test
+  # creates its own schema and ERP orders table through an admin connection, then drops it.
+  postgres:
+    name: postgres tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # A "service container": started before the steps, reachable on localhost, deleted after.
+    services:
+      postgres:
+        # The major version of the ERP database (docker-compose.erp.yml of the course).
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: livraison_express
+        ports:
+          - 5432:5432
+        # The steps start only once the server accepts connections.
+        options: >-
+          --health-cmd "pg_isready -U postgres -d livraison_express"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 15
+    env:
+      # Admin connection for the test fixtures only: a throwaway server, not a real secret.
+      TEST_POSTGRES_DSN: postgresql://postgres:test@localhost:5432/livraison_express
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: |
+            requirements-train.lock
+            requirements-dev.lock
+
+      # Same install as the training job, which is the one reading the ERP.
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-train.lock -r requirements-dev.lock
+          pip install --no-deps -e .
+
+      # Only the tests marked `postgres`. With TEST_POSTGRES_DSN set they run, never skip;
+      # an unreachable server makes them fail.
+      - name: Test (pytest -m postgres)
+        run: pytest -m postgres -rs
+
   # The lock files are generated from pyproject.toml: fail if someone changed a dependency
   # without running scripts/update-locks.sh.
   locks:

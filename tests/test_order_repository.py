@@ -1,35 +1,16 @@
-from datetime import date
-
 import pytest
 
-from livraison_express.abstractions.order_repository import OrderRepository
+from livraison_express.abstractions.order_repository import OrderReader, OrderRepository
 from livraison_express.infrastructure.dev.in_memory_order_repository import (
     InMemoryOrderRepository,
 )
 from livraison_express.infrastructure.dev.order_generator import generate_orders
+from tests.erp_support import ORDER, canonical_to_erp_row
 
 # Contract tests (ADR-0005, ADR-0012). A new implementation is added to one list and must pass
 # every test of it: READERS for any OrderReader, REPOSITORIES for read + write stores.
-READERS = [InMemoryOrderRepository]
+READERS = ["memory", pytest.param("postgres", marks=pytest.mark.postgres)]
 REPOSITORIES = [InMemoryOrderRepository]
-
-ORDER = {
-    "order_id": "CMD-000001",
-    "order_date": date(2026, 11, 20),
-    "hour": 10,
-    "day_of_week": 4,
-    "weekend": 0,
-    "distance_km": 2.5,
-    "order_value_eur": 50.0,
-    "weight_kg": 1.25,
-    "stock_available": 1,
-    "preparation_time_min": 10.0,
-    "carrier_capacity": 0.9,
-    "weather": "pluie",
-    "delivery_zone": "banlieue",
-    "customer_type": "professionnel",
-    "express_eligible": 1,
-}
 
 
 def order(order_id: str, **changes) -> dict:
@@ -38,8 +19,17 @@ def order(order_id: str, **changes) -> dict:
 
 @pytest.fixture(params=READERS)
 def make_reader(request):
-    """A function: canonical orders -> a reader holding them."""
-    return request.param
+    """A function: canonical orders -> a reader holding them, each store seeded in its own format."""
+    if request.param == "memory":
+        return InMemoryOrderRepository
+
+    erp_table = request.getfixturevalue("erp_table")  # skipped without TEST_POSTGRES_DSN
+
+    def make(orders: list[dict]) -> OrderReader:
+        erp_table.insert(canonical_to_erp_row(o) for o in orders)
+        return erp_table.reader()
+
+    return make
 
 
 # ---------- OrderReader contract ----------
