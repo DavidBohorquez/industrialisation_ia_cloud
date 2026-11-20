@@ -1,7 +1,9 @@
 FROM python:3.13-slim
 
 WORKDIR /app
-COPY src/erp_simulator/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Le sujet copiait src/erp_simulator/requirements.txt, qui n'existe pas :
+# les dépendances sont dans requirements-databases.txt (une seule source).
+COPY requirements-databases.txt .
+RUN pip install --no-cache-dir -r requirements-databases.txt
 COPY src/erp_simulator/*.py .
 CMD ["python", "erp_simulator.py"]

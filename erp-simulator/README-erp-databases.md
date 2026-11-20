@@ -7,6 +7,25 @@ Le code est organisé par responsabilité : `config.py` lit l'environnement,
 `generator.py` produit les commandes, `storage.py` contient les adaptateurs de
 bases et `simulator.py` orchestre le scénario via des contrats `Protocol`.
 
+## Différences avec le sujet fourni
+
+Ce dossier est le simulateur du TP4 (`tp4/`), importé tel quel puis corrigé.
+Chaque écart avec le sujet est listé ici.
+
+- **L'image se construit** : le `Dockerfile` copiait `src/erp_simulator/requirements.txt`,
+  absent du sujet ; il utilise maintenant `requirements-databases.txt`.
+- **`docker/erp/postgres-init.sql` existe** : `docker-compose.erp.yml` le monte mais il
+  manquait. Le schéma reste créé par le simulateur (`PostgresWriter._ensure_schema`).
+- **`.dockerignore`** en liste blanche : seuls les fichiers copiés par le `Dockerfile`
+  entrent dans le contexte de build.
+- `storage.py` : une ligne vide en trop retirée (règle `ruff` du dépôt), rien d'autre.
+- Les fichiers `infrastructure/implementation/*_order_repository.py` cités plus bas ne
+  font pas partie du sujet : c'est l'exercice du TP, réalisé dans l'application.
+
+À savoir : `LIVE_ORDER_LIMIT` est le **dernier numéro de séquence** du flux live, pas un
+nombre de commandes. Avec l'historique par défaut (10 000 + 1 000 commandes), le flux
+live commence à `ERP-00011001` : `LIVE_ORDER_LIMIT=200` ne produit donc aucune commande.
+
 Par défaut, PostgreSQL reçoit des commandes historiques réparties entre le
 1er janvier 2015 et hier. MongoDB reçoit les mêmes commandes historiques que
 PostgreSQL pour la période 2023 -> hier. Les deux bases reçoivent ensuite les
@@ -41,7 +60,7 @@ Ce dossier propose deux implémentations du contrat `OrderRepository` :
 
 ## Démarrer les bases et le simulateur ERP
 
-Depuis la racine `correction` :
+Depuis le dossier `erp-simulator` :
 
 ```bash
 docker compose -f docker-compose.erp.yml up --build

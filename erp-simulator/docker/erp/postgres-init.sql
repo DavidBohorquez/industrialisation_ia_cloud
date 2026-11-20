@@ -1,0 +1,6 @@
+-- Exécuté une seule fois par l'image postgres, au premier démarrage (volume vide).
+--
+-- Ce fichier est monté par docker-compose.erp.yml mais manquait dans le sujet fourni.
+-- La table orders n'est pas créée ici : le simulateur s'en charge
+-- (storage.PostgresWriter._ensure_schema), pour garder une seule définition du schéma.
+-- Ce fichier accueillera le rôle en lecture seule utilisé par l'application.
