@@ -4,7 +4,7 @@ import pandas as pd
 
 from livraison_express.abstractions.experiment_tracker import ExperimentTracker
 from livraison_express.abstractions.model_repository import ModelRepository
-from livraison_express.abstractions.order_repository import OrderRepository
+from livraison_express.abstractions.order_repository import OrderReader
 from livraison_express.core.data_quality import clean_orders_data, validate_dataset
 from livraison_express.core.domain import TrainedModel
 from livraison_express.core.learning.ml_trainer import MLTrainer
@@ -13,14 +13,14 @@ logger = logging.getLogger(__name__)
 
 
 def run_training(
-    order_repository: OrderRepository,
+    order_reader: OrderReader,
     model_repository: ModelRepository,
     tracker: ExperimentTracker,
     trainer: MLTrainer,
     version: str,
 ) -> TrainedModel:
     """Training job: labelled orders -> quality checks -> MLTrainer -> model repository -> tracking."""
-    records = order_repository.get_training_data()
+    records = order_reader.get_training_data()
     if not records:
         raise ValueError("Aucune commande avec un résultat connu : impossible d'entraîner un modèle.")
 

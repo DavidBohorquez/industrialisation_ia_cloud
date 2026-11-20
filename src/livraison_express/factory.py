@@ -1,7 +1,7 @@
 from livraison_express.abstractions.experiment_tracker import ExperimentTracker
 from livraison_express.abstractions.explanation_generator import ExplanationGenerator
 from livraison_express.abstractions.model_repository import ModelRepository
-from livraison_express.abstractions.order_repository import OrderRepository
+from livraison_express.abstractions.order_repository import OrderReader
 from livraison_express.config import Settings
 from livraison_express.core.explanation import TemplateExplanationGenerator
 from livraison_express.core.learning.ml_predict import MLPredict
@@ -13,7 +13,7 @@ from livraison_express.infrastructure.dev.in_memory_order_repository import (
 from livraison_express.infrastructure.dev.order_generator import generate_orders
 
 
-def build_order_repository(settings: Settings) -> OrderRepository:
+def build_order_reader(settings: Settings) -> OrderReader:
     if settings.environment == "dev":
         return InMemoryOrderRepository(generate_orders(random_state=settings.random_state))
 

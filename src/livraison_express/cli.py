@@ -11,7 +11,7 @@ from livraison_express.core.training import run_training
 from livraison_express.factory import (
     build_experiment_tracker,
     build_model_repository,
-    build_order_repository,
+    build_order_reader,
     build_predictor,
     build_trainer,
 )
@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 def train(settings: Settings) -> None:
     model = run_training(
-        order_repository=build_order_repository(settings),
+        order_reader=build_order_reader(settings),
         model_repository=build_model_repository(settings),
         tracker=build_experiment_tracker(settings),
         trainer=build_trainer(settings),

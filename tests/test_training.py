@@ -2,6 +2,7 @@ import pytest
 
 from livraison_express.abstractions.experiment_tracker import ExperimentTracker
 from livraison_express.abstractions.model_repository import ModelRepository
+from livraison_express.abstractions.order_repository import OrderReader
 from livraison_express.core.domain import TrainedModel
 from livraison_express.core.features import TARGET_COLUMN
 from livraison_express.core.learning.ml_trainer import MLTrainer
@@ -31,6 +32,25 @@ class RecordingTracker(ExperimentTracker):
         return "run-1"
 
 
+class ReadOnlyOrders(OrderReader):
+    """A source without save(), like the ERP reader: training must only read."""
+
+    def __init__(self, records):
+        self._store = InMemoryOrderRepository(records)
+
+    def get(self, order_id):
+        return self._store.get(order_id)
+
+    def get_all(self):
+        return self._store.get_all()
+
+    def count(self):
+        return self._store.count()
+
+    def get_training_data(self):
+        return self._store.get_training_data()
+
+
 def test_run_training_cleans_trains_saves_and_tracks(orders):
     records = orders.to_dict(orient="records")
     records[5] = {**records[5], "carrier_capacity": 3}
@@ -50,6 +70,20 @@ def test_run_training_cleans_trains_saves_and_tracks(orders):
     metrics = model.card.metrics
     assert set(metrics) == {"accuracy", "precision", "recall", "f1_score", "roc_auc"}
     assert metrics["roc_auc"] > 0.7
+
+
+def test_training_only_needs_a_reader(orders):
+    model_repository = InMemoryModelRepository()
+
+    run_training(
+        ReadOnlyOrders(orders.to_dict(orient="records")),
+        model_repository,
+        RecordingTracker(),
+        MLTrainer(random_state=0, evaluation_threshold=0.5),
+        "2.0.0",
+    )
+
+    assert "2.0.0" in model_repository.models
 
 
 def test_orders_without_outcome_are_not_used_for_training(orders):
