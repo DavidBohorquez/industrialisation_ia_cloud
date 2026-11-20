@@ -21,8 +21,19 @@ Chaque écart avec le sujet est listé ici.
 - `storage.py` : une ligne vide en trop retirée (règle `ruff` du dépôt), rien d'autre.
 - Les fichiers `infrastructure/implementation/*_order_repository.py` cités plus bas ne
   font pas partie du sujet : c'est l'exercice du TP, réalisé dans l'application.
-- **`outcome.py` ajouté** : simule la cible `express_eligible` (section suivante).
-  Pas encore branché au simulateur.
+- **Cible `express_eligible` ajoutée** (section suivante) : `outcome.py`, colonne
+  `express_eligible` (`SMALLINT`, `NULL` tant que le résultat n'est pas connu, migration
+  2026 dans `schema_migrations`), champ `express_eligible` dans MongoDB, révélation après
+  `LABEL_DELAY_DAYS` jours simulés.
+- **Contrats dans `contracts.py`** : les `Protocol` quittent `storage.py`, pour que
+  `simulator.py` ne dépende plus de psycopg et pymongo et se teste sans base.
+- **MongoDB n'écrase plus une commande existante** : `UpdateOne` + `$setOnInsert` (insertion
+  seulement si absente, comme `ON CONFLICT DO NOTHING` côté PostgreSQL) au lieu de
+  `ReplaceOne`, qui effaçait le résultat déjà connu au redémarrage.
+- **L'horloge simulée reprend après un redémarrage** : le premier lot live porte le
+  lendemain de la commande la plus récente, au lieu de repartir d'aujourd'hui.
+- **Rôle `ml_reader` en lecture seule** créé par `postgres-init.sql` (`SELECT` seulement,
+  `default_transaction_read_only`) : le rôle utilisé par l'application (ADR-0009).
 
 ## Cible `express_eligible` (`outcome.py`)
 
@@ -51,9 +62,24 @@ Règles :
 Avec les distributions de l'ERP, environ 34 % des commandes sont éligibles, contre 79 %
 avec les données du notebook : les distances y suivent une loi uniforme de 1 à 40 km.
 
-**Pas encore branché** : `outcome.py` n'écrit rien en base. La colonne
-`express_eligible` et sa révélation avec une horloge simulée (`LABEL_DELAY_DAYS`) sont
-l'étape suivante.
+### Quand le résultat est-il connu ?
+
+Dans la réalité, on connaît le résultat d'une commande quelque temps après elle. Ici,
+l'horloge est la date simulée la plus récente : chaque lot live avance d'un jour. Après
+l'historique puis après chaque lot, le simulateur révèle le résultat des commandes datées
+d'au moins `LABEL_DELAY_DAYS` jours simulés (2 par défaut) :
+
+```
+ lot             1        2        3        4        5
+ date simulée  20 nov.  21 nov.  22 nov.  23 nov.  24 nov.
+ résultats       -        -      20 nov.  21 nov.  22 nov.
+```
+
+Une commande live reste donc sans résultat pendant deux lots : c'est elle qu'un modèle
+aurait à prédire. Les mises à jour ne touchent que les résultats encore `NULL`
+(idempotentes) ; MongoDB est mis à jour sans upsert (les commandes d'avant 2023 n'y
+existent pas). Pour suivre la révélation : `docker compose -f docker-compose.erp.yml logs
+-f erp-simulator` (lignes « Résultats connus jusqu'au … »).
 
 Tests : `pytest erp-simulator/tests` depuis la racine du dépôt (lancés aussi par la CI).
 

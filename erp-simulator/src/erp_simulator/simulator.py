@@ -7,8 +7,9 @@ import time
 from datetime import date, timedelta
 
 from config import SimulationConfig
+from contracts import OrderCounter, OrderWriter, OutcomeSource, OutcomeWriter
 from generator import OrderGenerator
-from storage import OrderCounter, OrderWriter
+from outcome import express_eligible
 
 
 class ErpSimulator:
@@ -29,6 +30,7 @@ class ErpSimulator:
     def run(self) -> None:
         try:
             self._write_history()
+            self._resolve_outcomes(self._last_order_date())
             self._write_live_stream()
         finally:
             self.postgres.close()
@@ -61,7 +63,7 @@ class ErpSimulator:
         if isinstance(self.postgres, OrderCounter):
             sequence = max(sequence, self.postgres.next_sequence() + 1)
             self.logger.info("Prochaine séquence live : ERP-%08d.", sequence)
-        simulation_date = self.config.today
+        simulation_date = self._first_live_date()
         while self.config.live_order_limit == 0 or sequence <= self.config.live_order_limit:
             size = self._next_batch_size(sequence)
             orders = self.generator.live_batch(sequence, size, simulation_date)
@@ -82,6 +84,7 @@ class ErpSimulator:
                     count,
                     simulation_date,
                 )
+            self._resolve_outcomes(simulation_date)
             sequence += size
             simulation_date += timedelta(days=1)
             time.sleep(self.config.interval_seconds)
@@ -90,3 +93,47 @@ class ErpSimulator:
     def _next_batch_size(self, sequence: int) -> int:
         remaining = self.config.live_order_limit - sequence + 1
         return min(self.config.batch_size, remaining) if self.config.live_order_limit else self.config.batch_size
+
+    def _last_order_date(self) -> date | None:
+        if isinstance(self.postgres, OutcomeSource):
+            return self.postgres.last_order_date()
+        return None
+
+    def _first_live_date(self) -> date:
+        """Date du premier lot live : le lendemain de la dernière date simulée.
+
+        Le sujet repartait toujours d'aujourd'hui ; après un redémarrage, l'horloge simulée
+        aurait reculé et plus aucun résultat n'aurait été révélé avant de la rattraper.
+        """
+        last_date = self._last_order_date()
+        if last_date is None:
+            return self.config.today
+        return max(self.config.today, last_date + timedelta(days=1))
+
+    def _resolve_outcomes(self, clock: date | None) -> None:
+        """Révèle le résultat des commandes datées d'au moins LABEL_DELAY_DAYS jours simulés.
+
+        L'horloge est la date simulée la plus récente : chaque lot live avance d'un jour.
+        """
+        if clock is None or not isinstance(self.postgres, OutcomeSource):
+            return
+        known_until = clock - timedelta(days=self.config.label_delay_days)
+        outcomes: dict[str, int] = {}
+        for order in self.postgres.pending_outcomes(known_until):
+            outcome = express_eligible(order)
+            if outcome is not None:
+                outcomes[str(order["order_id"])] = outcome
+        if not outcomes:
+            return
+
+        counts = [
+            writer.set_outcomes(outcomes) if isinstance(writer, OutcomeWriter) else 0
+            for writer in (self.postgres, self.mongo)
+        ]
+        self.logger.info(
+            "Résultats connus jusqu'au %s : PostgreSQL=%d, MongoDB=%d, éligibles=%.0f %%.",
+            known_until,
+            counts[0],
+            counts[1],
+            100 * sum(outcomes.values()) / len(outcomes),
+        )
