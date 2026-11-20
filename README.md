@@ -197,6 +197,7 @@ Settings are read by `src/livraison_express/config.py` (`pydantic-settings`), in
 ├── Dockerfile                        # multi-stage: test, train and serve images
 ├── .dockerignore                     # allow-list of the files the images may contain
 ├── docker-compose.yml                # train job + API sharing a model volume
+├── erp-simulator/                    # course ERP simulator (TP4): fills PostgreSQL and MongoDB
 ├── src/livraison_express/
 │   ├── __main__.py                   # entry point: python -m livraison_express
 │   ├── cli.py                        # commands serve / train / predict / predict-batch
@@ -264,6 +265,7 @@ Decisions are recorded in `docs/adr/`:
 - [ADR-0006](docs/adr/0006-branching-model.md): GitFlow branches, semantic version tags and Docker image tags
 - [ADR-0007](docs/adr/0007-dependency-management.md): dependency ranges, `train` extra, dev/notebook groups, `uv.lock` exported to one lock file per install profile, CI per profile
 - [ADR-0008](docs/adr/0008-docker-images.md): one multi-stage Dockerfile for the train and serve images, the model in a volume, rootless and read-only containers
+- [ADR-0010](docs/adr/0010-labels-in-the-erp-simulator.md): the order outcome (`express_eligible`) simulated in the ERP simulator with the course heuristic, revealed after a simulated delay
 
 ## Status
 
