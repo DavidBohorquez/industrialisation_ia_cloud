@@ -94,6 +94,7 @@ def test_rows_that_cannot_be_translated_are_skipped_and_logged(erp_table, caplog
             erp_row("ERP-1"),
             erp_row("ERP-2", weather="hail"),
             erp_row("ERP-3", customer_type="vip", express_eligible=None),
+            erp_row("ERP-4", weather="hail"),
         ]
     )
     reader = erp_table.reader()
@@ -102,9 +103,13 @@ def test_rows_that_cannot_be_translated_are_skipped_and_logged(erp_table, caplog
         orders = reader.get_all()
 
     assert [o["order_id"] for o in orders] == ["ERP-1"]
-    assert "Skipped 2 of 3 ERP orders" in caplog.text
-    assert "ERP-2: unknown weather 'hail'" in caplog.text
+    # One warning: each distinct problem (field, value) with its count and order ids.
+    [warning] = caplog.records
+    assert "Skipped 3 of 4 ERP orders" in warning.getMessage()
+    assert "unknown weather 'hail'" in warning.getMessage()
+    assert "2 order(s), e.g. ERP-2, ERP-4" in warning.getMessage()
+    assert "unknown customer_type 'vip'" in warning.getMessage()
     # Still counted: count() - len(get_all()) shows what was skipped.
-    assert reader.count() == 3
+    assert reader.count() == 4
     assert reader.get("ERP-2") is None
     assert [o["order_id"] for o in reader.get_training_data()] == ["ERP-1"]

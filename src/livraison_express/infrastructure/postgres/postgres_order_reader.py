@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 TABLE = "orders"
 CONNECT_TIMEOUT_SECONDS = 10
+MAX_IDS_LOGGED = 3
 
 # COLLATE "C": byte order, the same as Python's sorted() and the same on every server,
 # whatever its locale (the contract sorts by order_id).
@@ -78,18 +79,25 @@ class PostgresOrderReader(OrderReader):
     @staticmethod
     def _translate(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         orders: list[dict[str, Any]] = []
-        errors: list[str] = []
+        # Problem (field and value) -> ids of the orders that have it.
+        rejected: dict[str, list[str]] = {}
         for row in rows:
             try:
                 orders.append(erp_row_to_order(row))
             except ValueError as error:
-                errors.append(f"{row['order_id']}: {error}")
+                rejected.setdefault(str(error), []).append(row["order_id"])
 
-        if errors:
+        if rejected:
+            # One line, whatever the number of rows: each distinct problem with its count and
+            # a few order ids (ADR-0011: field, value and order id).
+            problems = "; ".join(
+                f"{problem}: {len(ids)} order(s), e.g. {', '.join(ids[:MAX_IDS_LOGGED])}"
+                for problem, ids in rejected.items()
+            )
             logger.warning(
-                "Skipped %d of %d ERP orders that cannot be translated, first: %s",
-                len(errors),
+                "Skipped %d of %d ERP orders that cannot be translated: %s",
+                sum(len(ids) for ids in rejected.values()),
                 len(rows),
-                errors[0],
+                problems,
             )
         return orders

@@ -6,7 +6,7 @@
 
 ## Context
 
-Session 4 asks for an `OrderRepository` implementation for the chosen database, PostgreSQL (ADR-0009). Slide 10 shows one interface with `save`, `get` and `get_all`, implemented by `PostgresOrderRepository` and `MongoOrderRepository`.
+Session 4 asks for an `OrderRepository` implementation for the chosen database, PostgreSQL ([ADR-0009](0009-read-orders-from-postgres-replica.md)). Slide 10 shows one interface with `save`, `get` and `get_all`, implemented by `PostgresOrderRepository` and `MongoOrderRepository`.
 
 That database belongs to the company's ERP: orders are its records, and our application only consumes them (training today, scoring jobs later). It must never write there; a bug that does would corrupt production data. Our `OrderRepository` (ADR-0005) bundles `save` with the reads, so a PostgreSQL implementation had two choices, both bad:
 
@@ -30,7 +30,7 @@ The training job never calls `save`: it only needs `get_training_data`.
                                                on each transaction    only (ADR-0009)  write
    ```
 
-5. **Adapter rules.** Every row goes through `erp_order_mapper.erp_row_to_order` (ERP vocabulary to ours, ADR-0011). The reader selects an explicit column list, sorts by `order_id COLLATE "C"` (byte order: the same as Python's `sorted()` and the same on every server, whatever its locale), reads labelled orders with `WHERE express_eligible IS NOT NULL`, and opens one short connection per call. A row the mapper rejects is skipped and counted in one warning; it never reaches training.
+5. **Adapter rules.** Every row goes through `erp_order_mapper.erp_row_to_order` (ERP vocabulary to ours, [ADR-0011](0011-canonical-vocabulary-and-source-adapters.md)). The reader selects an explicit column list, sorts by `order_id COLLATE "C"` (byte order: the same as Python's `sorted()` and the same on every server, whatever its locale), reads labelled orders with `WHERE express_eligible IS NOT NULL`, and opens one short connection per call. A row the mapper rejects is skipped; one warning per read lists each distinct problem (field and value) with its count and a few order ids. It never reaches training, and `validate_dataset` checks the categories again (ADR-0011).
 6. **One contract, tested on every implementation.** The reader contract now says `get_all` and `get_training_data` are sorted by `order_id`: the same orders give the same training set, so the same model, whatever the store (`InMemoryOrderRepository` sorts too). `tests/test_order_repository.py` runs the reader contract on `READERS` (in memory and PostgreSQL) and the writer contract on `REPOSITORIES` (in memory). Each store is seeded in its own format: canonical dicts in memory, ERP rows through an admin connection in PostgreSQL.
 
 Deviation from slide 10: the slide's interface fits a store the application owns. For a source another system owns, a write method is a liability, so the read side is split out. The course's names stay recognisable: its `OrderRepository` is ours (read and write), and its `PostgresOrderRepository` becomes `PostgresOrderReader`.

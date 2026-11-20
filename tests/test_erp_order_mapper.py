@@ -2,7 +2,13 @@ from datetime import date
 
 import pytest
 
-from livraison_express.infrastructure.postgres.erp_order_mapper import erp_row_to_order
+from livraison_express.core.features import CATEGORY_VALUES
+from livraison_express.infrastructure.postgres.erp_order_mapper import (
+    CUSTOMER_TYPE,
+    DELIVERY_ZONE,
+    WEATHER,
+    erp_row_to_order,
+)
 
 # A row as the ERP stores it (its vocabulary, capacity in slots out of 50).
 ERP_ROW = {
@@ -70,6 +76,16 @@ def test_delivery_zone(erp, canonical):
 )
 def test_customer_type(erp, canonical):
     assert erp_row_to_order(row(customer_type=erp))["customer_type"] == canonical
+
+
+@pytest.mark.parametrize(
+    ("column", "mapping"),
+    [("weather", WEATHER), ("delivery_zone", DELIVERY_ZONE), ("customer_type", CUSTOMER_TYPE)],
+)
+def test_every_mapped_value_is_canonical(column, mapping):
+    # The tables live in the adapter (the contract with one source); what they produce must be
+    # the application's vocabulary (ADR-0011), or validate_dataset would stop the training run.
+    assert set(mapping.values()) <= set(CATEGORY_VALUES[column])
 
 
 @pytest.mark.parametrize(
