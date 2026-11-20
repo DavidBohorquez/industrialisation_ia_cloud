@@ -35,7 +35,7 @@ release/<X.Y.Z>, hotfix/<X.Y.Z>    maintainers only (see "Releases" below)
 1. Update `develop` and create your branch: `git switch develop && git pull --ff-only && git switch -c feature/<short-name>`.
 2. Commit small, focused changes (see "Commit messages").
 3. Push and open a pull request into **`develop`**, using the template.
-4. The required checks must pass: `serving tests`, `training tests`, `lock files in sync` and `docker image`. Nobody can merge a pull request with a red check, nor push directly to `develop` or `main`.
+4. The required checks must pass: `serving tests`, `training tests`, `postgres tests`, `lock files in sync` and `docker image`. Nobody can merge a pull request with a red check, nor push directly to `develop` or `main`.
 5. The pull request is merged with **Create a merge commit** (never squashed), then the branch is deleted.
 
 ## Commit messages
@@ -56,7 +56,7 @@ release/<X.Y.Z>, hotfix/<X.Y.Z>    maintainers only (see "Releases" below)
 ## Before opening a pull request
 
 - [ ] `ruff check .` and `pytest` pass locally.
-- [ ] New behaviour comes with tests. The tests must not need network access, real data or a trained model on disk (`tests/conftest.py` trains a small model in memory).
+- [ ] New behaviour comes with tests. The tests must not need network access, real data or a trained model on disk (`tests/conftest.py` trains a small model in memory). Tests that need PostgreSQL carry the `postgres` marker and use the `erp_table` fixture: they are skipped unless `TEST_POSTGRES_DSN` points at a throwaway server (see the README, "Reading orders from the ERP").
 - [ ] [CHANGELOG.md](CHANGELOG.md) has a line under `## [Unreleased]` (Added, Changed, Fixed, Removed...).
 - [ ] The README and the docs match the change. A significant decision (architecture, tool, process) gets an ADR in `docs/adr/`: copy the structure of the latest one (Status, Date, Context, Decisions, Consequences) with the next number.
 - [ ] If the HTTP contract changed: `python -m livraison_express.api.export_openapi` regenerates `docs/openapi.json` (a test fails otherwise).
@@ -69,7 +69,7 @@ Dependencies are managed as described in [ADR-0007](docs/adr/0007-dependency-man
 2. Run `scripts/update-locks.sh`. To upgrade a package that is already locked, run `uv lock --upgrade-package <name>` first.
 3. Commit `pyproject.toml`, `uv.lock` and the four `requirements*.lock` files together. The `lock files in sync` check fails otherwise.
 
-Serving code (the API, the CLI and everything they import) must not import `mlflow`: `tests/test_dependency_boundary.py` and the `serving tests` job check it. Tests that need `mlflow` carry `pytestmark = pytest.mark.training` and import it inside the test.
+Serving code (the API, the CLI and everything they import) must not import `mlflow`, nor `psycopg` (installed, but only jobs reading the ERP need it): `tests/test_dependency_boundary.py` and the `serving tests` job check it. `factory.py` imports both inside the function that needs them. Tests that need `mlflow` carry `pytestmark = pytest.mark.training` and import it inside the test.
 
 ## Code style
 

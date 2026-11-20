@@ -15,6 +15,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `erp-simulator/docker-compose.replica.yml`: a read-only PostgreSQL replica (streaming hot standby, cloned with `pg_basebackup`) for the data team, added on top of `docker-compose.erp.yml`. On the shared `livraison-net` network it answers as `erp-postgres`, and the production primary is kept off that network.
 - ADR-0009: orders are read from PostgreSQL (full history) with a read-only role on a streaming replica, never on the production primary; MongoDB is the fallback if neither can be obtained.
 - Training and the command line (`predict`, `predict-batch`) reject category values outside the vocabulary with a message listing the allowed ones. Before, the model's encoder ignored them silently and scored the order as if the field were missing.
+- Training can read the labelled orders of the ERP's PostgreSQL database: `ORDER_SOURCE=postgres` with `POSTGRES_DSN`. `PostgresOrderReader` cannot write (no `save` method, read-only connection, read-only role), and `erp_order_mapper.py` translates each row into the application's vocabulary; rows it cannot translate are skipped and counted in a warning.
+- `OrderReader` and `OrderWriter` interfaces; `OrderRepository` combines them for stores the application owns.
+- `psycopg[binary]` dependency (PostgreSQL driver), imported only when `ORDER_SOURCE=postgres`.
+- Tests marked `postgres`, skipped unless `TEST_POSTGRES_DSN` is set, and a CI job `postgres tests` that runs them against a PostgreSQL 17 service container.
+- ADR-0012 (read-only `OrderReader`) and ADR-0013 (one setting per dependency).
 
 ### Changed
 
@@ -30,6 +35,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **BREAKING:** the default `MODEL_VERSION` is 2.0.0 (`config.py`, `.env.example`, `docker-compose.yml`), so that this version never loads a model trained on the old vocabulary (1.0.0). Train 2.0.0 before serving: `python -m livraison_express train` or `docker compose run --rm train`.
 - The dev order generator uses the canonical values with the ERP simulator's penalties (`vent` 0.20, `banlieue` 0.175, `professionnel` +0.15). Numeric distributions and the scoring formula are unchanged; the notebook keeps the original vocabulary.
 - README: `docker compose up -d --wait api` returns once the API is healthy, and the `docker run` instructions show how to wait for the `(healthy)` status before calling the API.
+- `run_training` takes an `OrderReader`; `factory.build_order_repository` is now `build_order_reader`.
+- `get_all` and `get_training_data` return orders sorted by `order_id` in every store, so the same orders always give the same training set.
+- `ORDER_SOURCE=postgres` without `POSTGRES_DSN` stops the program at startup with a clear message.
+
+### Removed
+
+- The `APP_ENV` setting: each dependency now has its own setting (ADR-0013). An `APP_ENV` left in a `.env` file is ignored.
 
 ## [1.1.0] - 2026-11-17
 
