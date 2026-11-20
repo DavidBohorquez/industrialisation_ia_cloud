@@ -13,13 +13,21 @@ This project turns an experimental Jupyter notebook into a production-ready Pyth
 | Task | Binary classification |
 | Target | `express_eligible` (1 = eligible, 0 = not eligible) |
 | Model | Logistic regression (scikit-learn pipeline) |
-| Data | Synthetic orders in the dev environment |
+| Data | Generated orders (default), or the company's ERP database read-only (`ORDER_SOURCE=postgres`) |
 
 Features used by the model:
 
 - **Order:** `hour`, `day_of_week`, `weekend`, `order_value_eur`, `weight_kg`, `customer_type`
 - **Logistics:** `distance_km`, `delivery_zone`, `carrier_capacity`, `weather`
 - **Warehouse:** `stock_available`, `preparation_time_min`
+
+Categories use the application's own vocabulary; each data source is translated into it by an adapter ([ADR-0011](docs/adr/0011-canonical-vocabulary-and-source-adapters.md)):
+
+| Feature | Allowed values |
+|---|---|
+| `weather` | `normal`, `pluie`, `neige`, `orage` (storm), `vent` (strong wind, no storm) |
+| `delivery_zone` | `centre`, `banlieue` (any suburb), `rurale` |
+| `customer_type` | `particulier` (individual, B2C), `professionnel` (business, B2B) |
 
 ## Getting started
 
@@ -41,7 +49,7 @@ Add `-r requirements-notebook.lock` to the first `pip install` to run the notebo
 
 | File | Contents | Used by |
 |---|---|---|
-| `requirements.lock` | API, CLI, predictions | serving |
+| `requirements.lock` | API, CLI, predictions, PostgreSQL driver | serving |
 | `requirements-train.lock` | serving + `train` extra (MLflow) | training job |
 | `requirements-dev.lock` | `dev` group: pytest, ruff, httpx2 | tests and lint |
 | `requirements-notebook.lock` | `notebook` group: jupyter, matplotlib, seaborn | notebook |
@@ -77,13 +85,13 @@ curl -X POST http://127.0.0.1:8000/v1/predictions \
 {
   "express_eligible": true,
   "decision": "oui",
-  "probability": 0.9377,
-  "model_version": "1.0.0",
-  "prediction_timestamp": "2026-10-09T10:16:37.615812+00:00",
+  "probability": 0.932,
+  "model_version": "2.0.0",
+  "prediction_timestamp": "2026-11-20T17:26:06.836102+00:00",
   "explanation": {
-    "text": "Cette commande est éligible à la livraison express (probabilité estimée : 94 %). Ce qui joue en sa faveur : la distance (3,5 km), la capacité du transporteur (0,85) et le poids (2,4 kg).",
+    "text": "Cette commande est éligible à la livraison express (probabilité estimée : 93 %). Ce qui joue en sa faveur : la distance (3,5 km), la capacité du transporteur (0,85) et la zone de livraison (centre).",
     "source": "template",
-    "top_factors": ["distance_km", "carrier_capacity", "weight_kg"]
+    "top_factors": ["distance_km", "carrier_capacity", "delivery_zone"]
   }
 }
 ```
@@ -104,10 +112,14 @@ Errors:
 ```bash
 python -m livraison_express serve                                        # start the HTTP API
 python -m livraison_express train                                        # train and save model MODEL_VERSION
+ORDER_SOURCE=postgres POSTGRES_DSN=postgresql://ml_reader:...@erp-postgres:5432/livraison_express \
+  python -m livraison_express train                                      # train on the ERP's labelled orders
 python -m livraison_express predict examples/order.json                  # one order -> JSON result
 python -m livraison_express predict-batch examples/orders.csv out.csv    # CSV of orders -> CSV with predictions
 python -m livraison_express.api.export_openapi                           # regenerate docs/openapi.json
 python -m pytest                                                         # run the tests
+TEST_POSTGRES_DSN=postgresql://postgres:test@127.0.0.1:55440/livraison_express \
+  python -m pytest -m postgres                                           # PostgreSQL tests (see below)
 ruff check .                                                             # lint (rules in pyproject.toml)
 ```
 
@@ -132,7 +144,7 @@ docker build --target test .       # run lint and tests inside the image
                                                volume      reads it read-only
 ```
 
-- **Settings** come from environment variables, e.g. `MODEL_VERSION=1.1.0 docker compose run --rm train`. Compose also reads a `.env` file next to `docker-compose.yml`; no `.env` is ever copied into an image.
+- **Settings** come from environment variables, e.g. `MODEL_VERSION=2.1.0 docker compose run --rm train`. Compose also reads a `.env` file next to `docker-compose.yml`; no `.env` is ever copied into an image.
 - **Security:** the containers run as a non-root user (uid 10001); the API has a read-only filesystem, a read-only model volume, no Linux capabilities, and only port 8000, published on `127.0.0.1`.
 - **Size:** the serving image is about 160 MB compressed (most of it scipy, pandas, numpy and scikit-learn). The final images only receive the virtual environment built in earlier stages: no pip cache, tests or build tools.
 - The CI job `docker image` runs these same steps on every pull request.
@@ -165,18 +177,33 @@ until [ "$(docker inspect --format '{{.State.Health.Status}}' livraison-api)" = 
 
 ## Configuration
 
-Settings are read by `src/livraison_express/config.py` (`pydantic-settings`), in this priority order: environment variables, then a `.env` file at the project root, then the defaults below. Copy `.env.example` to `.env` to change them locally. Invalid values (e.g. `DECISION_THRESHOLD=abc`) stop the program at startup with a clear message.
+Settings are read by `src/livraison_express/config.py` (`pydantic-settings`), in this priority order: environment variables, then a `.env` file at the project root, then the defaults below. Copy `.env.example` to `.env` to change them locally. Invalid values (e.g. `DECISION_THRESHOLD=abc`, or `ORDER_SOURCE=postgres` without `POSTGRES_DSN`) stop the program at startup with a clear message.
+
+Each dependency has its own setting, not one environment name for all of them ([ADR-0013](docs/adr/0013-per-dependency-settings.md)): the training job can read the ERP while the API, in the same environment, reads no orders.
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `APP_ENV` | `dev` | Selects the implementations in `src/livraison_express/factory.py` |
+| `ORDER_SOURCE` | `memory` | Where jobs read orders from: `memory` (generated) or `postgres` (the ERP database, read-only) |
+| `POSTGRES_DSN` | none | Required when `ORDER_SOURCE=postgres`: `postgresql://<user>:<password>@<host>:5432/<database>`, with the read-only role. A secret: never logged, never committed |
 | `ARTIFACTS_DIR` | `<project>/artifacts` | Where model versions are stored |
-| `MODEL_VERSION` | `1.0.0` | Version to train (must be new) or to load |
+| `MODEL_VERSION` | `2.0.0` | Version to train (must be new) or to load |
 | `DECISION_THRESHOLD` | `0.5` | Probability from which an order is eligible (0 to 1) |
 | `RANDOM_STATE` | `42` | Seed for data generation, split and model |
 | `LOG_LEVEL` | `INFO` | Minimum level of log messages shown: `DEBUG`, `INFO`, `WARNING`, `ERROR` |
 | `MLFLOW_TRACKING_URI` | `sqlite:///<project>/mlflow.db` | Where training runs are recorded (`mlflow ui --backend-store-uri sqlite:///mlflow.db`) |
 | `MLFLOW_ARTIFACT_LOCATION` | `<project>/mlruns` | Where MLflow stores run files (model, model card) |
+
+### Reading orders from the ERP (PostgreSQL)
+
+With `ORDER_SOURCE=postgres`, the training job reads the labelled orders (`express_eligible` not NULL) of the ERP's `public.orders` table through `PostgresOrderReader` ([ADR-0012](docs/adr/0012-read-only-order-reader.md)). It can only read: the class has no `save` method, its connection runs every transaction `READ ONLY`, and the DSN names the read-only role `ml_reader`. Each row is translated into the application's vocabulary by `erp_order_mapper.py` (`rain` -> `pluie`, `suburb` -> `banlieue`, capacity in slots out of 50 -> share between 0 and 1...). A row with a value the mapper does not know is skipped and counted in a warning.
+
+The tests marked `postgres` need a throwaway server; they are skipped when `TEST_POSTGRES_DSN` is not set. Each test creates its own schema and drops it afterwards:
+
+```bash
+docker run -d --name pgtest -e POSTGRES_PASSWORD=test -e POSTGRES_DB=livraison_express -p 127.0.0.1:55440:5432 postgres:17-alpine
+TEST_POSTGRES_DSN=postgresql://postgres:test@127.0.0.1:55440/livraison_express python -m pytest -m postgres
+docker rm -f pgtest
+```
 
 ## Project structure
 
@@ -197,12 +224,13 @@ Settings are read by `src/livraison_express/config.py` (`pydantic-settings`), in
 ├── Dockerfile                        # multi-stage: test, train and serve images
 ├── .dockerignore                     # allow-list of the files the images may contain
 ├── docker-compose.yml                # train job + API sharing a model volume
+├── erp-simulator/                    # course ERP simulator (TP4): fills PostgreSQL and MongoDB
 ├── src/livraison_express/
 │   ├── __main__.py                   # entry point: python -m livraison_express
 │   ├── cli.py                        # commands serve / train / predict / predict-batch
 │   ├── config.py                     # settings: environment variables, .env, defaults
 │   ├── logging_config.py             # LOG_LEVEL and log format
-│   ├── factory.py                    # picks the implementation for each abstraction
+│   ├── factory.py                    # picks the implementation for each abstraction (from settings)
 │   ├── api/
 │   │   ├── app.py                    # FastAPI endpoints and error handling
 │   │   ├── schemas.py                # Pydantic models = OpenAPI contract
@@ -210,7 +238,7 @@ Settings are read by `src/livraison_express/config.py` (`pydantic-settings`), in
 │   │   └── export_openapi.py         # writes docs/openapi.json
 │   ├── abstractions/
 │   │   ├── model_repository.py       # ModelRepository (ABC)
-│   │   ├── order_repository.py       # OrderRepository (ABC): orders as dicts
+│   │   ├── order_repository.py       # OrderReader, OrderWriter, OrderRepository (ABCs): orders as dicts
 │   │   ├── explanation_generator.py  # ExplanationGenerator (ABC)
 │   │   └── experiment_tracker.py     # ExperimentTracker (ABC)
 │   ├── core/
@@ -226,10 +254,13 @@ Settings are read by `src/livraison_express/config.py` (`pydantic-settings`), in
 │   │       └── ml_predict.py             # MLPredict: probability -> decision
 │   └── infrastructure/
 │       ├── mlflow_tracking.py        # MlflowExperimentTracker (any environment)
-│       └── dev/
-│           ├── order_generator.py            # generate_orders(): synthetic labelled orders
-│           ├── in_memory_order_repository.py # InMemoryOrderRepository
-│           └── file_model_repository.py      # FileModelRepository
+│       ├── dev/
+│       │   ├── order_generator.py            # generate_orders(): synthetic labelled orders
+│       │   ├── in_memory_order_repository.py # InMemoryOrderRepository (read + write)
+│       │   └── file_model_repository.py      # FileModelRepository
+│       └── postgres/
+│           ├── erp_order_mapper.py           # ERP row -> canonical order (anti-corruption layer)
+│           └── postgres_order_reader.py      # PostgresOrderReader: reads the ERP, cannot write
 ├── tests/
 ├── examples/                         # sample inputs
 ├── docs/
@@ -240,7 +271,7 @@ Settings are read by `src/livraison_express/config.py` (`pydantic-settings`), in
 
 ## Architecture
 
-Business code (`core/`) depends only on abstractions. Entry points (CLI, API) and environment-specific classes (`infrastructure/`) are connected in one place, `factory.py` (dependency inversion, the "D" in SOLID).
+Business code (`core/`) depends only on abstractions. Entry points (CLI, API) and the implementations in `infrastructure/` are connected in one place, `factory.py`, which picks each implementation from its own setting (dependency inversion, the "D" in SOLID). Code that only reads orders, like training, receives an `OrderReader`: it cannot write, whatever the source (interface segregation, the "I").
 
 ```
   terminal ──> cli.py ───────┐
@@ -250,13 +281,13 @@ Business code (`core/`) depends only on abstractions. Entry points (CLI, API) an
                                        abstractions/ (ABC contracts)
                                                     ^
                                                     │ implemented by
-              infrastructure/ (dev/, mlflow_tracking.py)  +  core/explanation.py (template)
+    infrastructure/ (dev/, postgres/, mlflow_tracking.py)  +  core/explanation.py (template)
 ```
 
 Decisions are recorded in `docs/adr/`:
 
 - [ADR-0000](docs/adr/0000-model-artifact-storage.md): model artifacts in a local directory, one folder per version
-- [ADR-0001](docs/adr/0001-order-data-source.md): training data source abstracted per environment (superseded by ADR-0005)
+- [ADR-0001](docs/adr/0001-order-data-source.md): training data source abstracted per environment (superseded by ADR-0005 and ADR-0013)
 - [ADR-0002](docs/adr/0002-notebook-scope.md): which notebook code goes into the application
 - [ADR-0003](docs/adr/0003-http-api.md): HTTP API, OpenAPI contract and explanations
 - [ADR-0004](docs/adr/0004-mlflow-tracking-and-model-card.md): MLflow experiment tracking and model card
@@ -264,6 +295,11 @@ Decisions are recorded in `docs/adr/`:
 - [ADR-0006](docs/adr/0006-branching-model.md): GitFlow branches, semantic version tags and Docker image tags
 - [ADR-0007](docs/adr/0007-dependency-management.md): dependency ranges, `train` extra, dev/notebook groups, `uv.lock` exported to one lock file per install profile, CI per profile
 - [ADR-0008](docs/adr/0008-docker-images.md): one multi-stage Dockerfile for the train and serve images, the model in a volume, rootless and read-only containers
+- [ADR-0009](docs/adr/0009-read-orders-from-postgres-replica.md): orders read from PostgreSQL (full history) through a read-only role on a streaming replica, never the production primary; MongoDB as fallback
+- [ADR-0010](docs/adr/0010-labels-in-the-erp-simulator.md): the order outcome (`express_eligible`) simulated in the ERP simulator with the course heuristic, revealed after a simulated delay
+- [ADR-0011](docs/adr/0011-canonical-vocabulary-and-source-adapters.md): the application's own category vocabulary, adjusted so every source maps into it, and one adapter per source in `infrastructure/`
+- [ADR-0012](docs/adr/0012-read-only-order-reader.md): `OrderReader` and `OrderWriter` split; `PostgresOrderReader` reads the ERP and cannot write (no `save`, read-only connection and role)
+- [ADR-0013](docs/adr/0013-per-dependency-settings.md): one setting per dependency (`ORDER_SOURCE`, `POSTGRES_DSN`) instead of the `APP_ENV` profile
 
 ## Status
 

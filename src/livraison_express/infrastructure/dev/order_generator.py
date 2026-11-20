@@ -5,10 +5,12 @@ import pandas as pd
 
 from livraison_express.core.features import CustomerType, DeliveryZone, Weather
 
+# Same penalties as the ERP simulator's labelling heuristic (ADR-0010), in canonical values.
+# banlieue 0.175: one value now covers the notebook's proche_banlieue (0.10) and banlieue (0.25),
+# as the ERP's "suburb" does; 0.175 is their mean.
 ZONE_PENALTY = {
     "centre": 0,
-    "proche_banlieue": 0.10,
-    "banlieue": 0.25,
+    "banlieue": 0.175,
     "rurale": 0.45,
 }
 
@@ -17,11 +19,24 @@ WEATHER_PENALTY = {
     "pluie": 0.10,
     "neige": 0.25,
     "orage": 0.30,
+    "vent": 0.20,
+}
+
+CUSTOMER_BONUS = {
+    "particulier": 0,
+    "professionnel": 0.15,
 }
 
 
 def generate_orders(n_rows: int = 6000, random_state: int = 42) -> list[dict[str, Any]]:
-    """Commandes fictives avec leur résultat (notebook, cellule 8) : le dev n'a pas de données réelles."""
+    """Synthetic labelled orders for dev and tests: there is no real data source in dev.
+
+    Based on notebook cell 8: same seed handling, numeric distributions and latent-score formula.
+    Only the categories differ (ADR-0011): they use the canonical vocabulary (vent added,
+    proche_banlieue merged into banlieue, particulier/professionnel instead of standard/premium)
+    and the penalties of the ERP simulator's labelling heuristic (ADR-0010), so that dev data
+    follows the same rules as ERP data. The notebook keeps the original version (ADR-0002).
+    """
     rng = np.random.default_rng(random_state)
 
     order_date = pd.date_range(start="2025-01-01", end="2025-12-31", periods=n_rows)
@@ -47,12 +62,12 @@ def generate_orders(n_rows: int = 6000, random_state: int = 42) -> list[dict[str
         "weather": rng.choice(
             list(get_args(Weather)),
             size=n_rows,
-            p=[0.65, 0.20, 0.10, 0.05],
+            p=[0.60, 0.20, 0.08, 0.04, 0.08],
         ),
         "delivery_zone": rng.choice(
             list(get_args(DeliveryZone)),
             size=n_rows,
-            p=[0.30, 0.30, 0.25, 0.15],
+            p=[0.30, 0.55, 0.15],
         ),
         "customer_type": rng.choice(
             list(get_args(CustomerType)),
@@ -63,7 +78,7 @@ def generate_orders(n_rows: int = 6000, random_state: int = 42) -> list[dict[str
 
     zone_penalty = data["delivery_zone"].map(ZONE_PENALTY)
     weather_penalty = data["weather"].map(WEATHER_PENALTY)
-    customer_bonus = (data["customer_type"] == "premium").astype(int) * 0.15
+    customer_bonus = data["customer_type"].map(CUSTOMER_BONUS)
 
     # Score latent simulant une décision métier
     score = (

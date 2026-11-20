@@ -1,6 +1,6 @@
 # ADR-0001: Abstract the source of training orders
 
-- **Status:** Superseded by [ADR-0005](0005-align-with-correction.md) (`OrderDataSource` replaced by `OrderRepository`)
+- **Status:** Superseded by [ADR-0005](0005-align-with-correction.md) (`OrderDataSource` replaced by `OrderRepository`) and [ADR-0013](0013-per-dependency-settings.md) (`APP_ENV` replaced by one setting per dependency)
 - **Date:** 2026-10-07
 
 ## Context

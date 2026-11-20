@@ -21,7 +21,7 @@ from livraison_express.api.schemas import (
 from livraison_express.core.domain import Prediction
 from livraison_express.core.learning.ml_predict import MLPredict
 
-API_VERSION = "1.0.0"
+API_VERSION = "2.0.0"
 MAX_BATCH_SIZE = 1000
 
 logger = logging.getLogger(__name__)

@@ -6,7 +6,8 @@ from pydantic import ValidationError
 from livraison_express.config import PROJECT_ROOT, Settings
 
 ENV_KEYS = [
-    "APP_ENV",
+    "ORDER_SOURCE",
+    "POSTGRES_DSN",
     "ARTIFACTS_DIR",
     "MODEL_VERSION",
     "DECISION_THRESHOLD",
@@ -26,9 +27,10 @@ def clean_environment(monkeypatch):
 def test_defaults_without_environment():
     settings = Settings(_env_file=None)
 
-    assert settings.environment == "dev"
+    assert settings.order_source == "memory"
+    assert settings.postgres_dsn is None
     assert settings.artifacts_dir == PROJECT_ROOT / "artifacts"
-    assert settings.model_version == "1.0.0"
+    assert settings.model_version == "2.0.0"
     assert settings.decision_threshold == 0.5
     assert settings.random_state == 42
     assert settings.log_level == "INFO"
@@ -37,25 +39,27 @@ def test_defaults_without_environment():
 
 
 def test_environment_variables_override_defaults(monkeypatch):
-    monkeypatch.setenv("APP_ENV", "test")
+    monkeypatch.setenv("ORDER_SOURCE", "postgres")
+    monkeypatch.setenv("POSTGRES_DSN", "postgresql://reader:secret@db:5432/orders")
     monkeypatch.setenv("DECISION_THRESHOLD", "0.7")
     monkeypatch.setenv("ARTIFACTS_DIR", "/srv/models")
 
     settings = Settings(_env_file=None)
 
-    assert settings.environment == "test"
+    assert settings.order_source == "postgres"
+    assert settings.postgres_dsn.get_secret_value() == "postgresql://reader:secret@db:5432/orders"
     assert settings.decision_threshold == 0.7
     assert settings.artifacts_dir == Path("/srv/models")
 
 
 def test_env_file_is_read_and_environment_wins(tmp_path, monkeypatch):
     env_file = tmp_path / ".env"
-    env_file.write_text("MODEL_VERSION=2.0.0\nLOG_LEVEL=DEBUG\n", encoding="utf-8")
+    env_file.write_text("MODEL_VERSION=9.9.9\nLOG_LEVEL=DEBUG\n", encoding="utf-8")
     monkeypatch.setenv("LOG_LEVEL", "WARNING")
 
     settings = Settings(_env_file=env_file)
 
-    assert settings.model_version == "2.0.0"
+    assert settings.model_version == "9.9.9"
     assert settings.log_level == "WARNING"
 
 
@@ -80,6 +84,7 @@ def test_env_example_is_a_valid_configuration():
         ("DECISION_THRESHOLD", "1.5"),
         ("RANDOM_STATE", "forty-two"),
         ("LOG_LEVEL", "VERBOSE"),
+        ("ORDER_SOURCE", "erp"),
     ],
 )
 def test_invalid_value_fails_at_startup(monkeypatch, key, value):
@@ -94,3 +99,40 @@ def test_settings_are_immutable():
 
     with pytest.raises(ValidationError):
         settings.decision_threshold = 0.9
+
+
+def test_postgres_source_without_dsn_fails_at_startup(monkeypatch):
+    monkeypatch.setenv("ORDER_SOURCE", "postgres")
+
+    with pytest.raises(ValidationError, match="ORDER_SOURCE=postgres needs POSTGRES_DSN"):
+        Settings(_env_file=None)
+
+
+def test_empty_dsn_counts_as_missing(tmp_path):
+    env_file = tmp_path / ".env"
+    env_file.write_text("ORDER_SOURCE=postgres\nPOSTGRES_DSN=\n", encoding="utf-8")
+
+    with pytest.raises(ValidationError, match="needs POSTGRES_DSN"):
+        Settings(_env_file=env_file)
+
+
+def test_dsn_password_is_never_shown(monkeypatch):
+    monkeypatch.setenv("ORDER_SOURCE", "postgres")
+    monkeypatch.setenv("POSTGRES_DSN", "postgresql://reader:s3cr3t@db:5432/orders")
+    monkeypatch.setenv("DECISION_THRESHOLD", "2")
+
+    with pytest.raises(ValidationError) as error:
+        Settings(_env_file=None)
+    assert "s3cr3t" not in str(error.value)
+
+    monkeypatch.setenv("DECISION_THRESHOLD", "0.5")
+    settings = Settings(_env_file=None)
+    assert "s3cr3t" not in repr(settings)
+    assert "s3cr3t" not in str(settings.model_dump())
+
+
+def test_dsn_alone_does_not_change_the_source(monkeypatch):
+    # One setting per dependency (ADR-0013): only ORDER_SOURCE chooses where orders come from.
+    monkeypatch.setenv("POSTGRES_DSN", "postgresql://reader:secret@db:5432/orders")
+
+    assert Settings(_env_file=None).order_source == "memory"
