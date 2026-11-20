@@ -22,6 +22,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - ADR-0012 (read-only `OrderReader`) and ADR-0013 (one setting per dependency).
 - `docker-compose.test.yml`: the whole chain with fake ERP data (simulator, PostgreSQL primary and replica, MongoDB, training job reading the replica as `ml_reader`, API on port 8001).
 - `docker-compose.prod.yml` and `.env.prod.example`: the released images only, training from the company's read replica (`POSTGRES_DSN`), resource limits and log rotation; required settings fail fast.
+- Airflow orchestration of the retraining (`orchestration/airflow/`): the official Airflow 3.4.0 compose file (CeleryExecutor), with its changes listed in its header, and the DAG `retrain_express_model`. Every 10 minutes it counts the labelled orders on the ERP read replica and, once at least 1000 new ones have arrived since the last training, runs the training image with the `DockerOperator` to train a new version `<prefix>+<run date and time>` (default prefix `2.0.0`). Promoting that version to the API stays manual.
+- ADR-0014 (orchestrate retraining with Airflow).
 
 ### Changed
 

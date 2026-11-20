@@ -201,6 +201,49 @@ The API needs a few seconds to start: until `docker ps` shows `(healthy)`, a req
 until [ "$(docker inspect --format '{{.State.Health.Status}}' livraison-api)" = healthy ]; do sleep 1; done
 ```
 
+## Orchestration (Airflow)
+
+Training is an execution process, not a build step ([ADR-0014](docs/adr/0014-airflow-retraining.md)): a new model is trained when enough new labelled orders have arrived, not when the code changes. Apache Airflow 3.4.0 (the official multi-container compose file, CeleryExecutor) checks the ERP database every 10 minutes. Airflow only orchestrates: the training runs in the training image, as with `docker compose run --rm train`.
+
+```
+ scheduler, every 10 minutes
+        │
+        v
+ count_labelled_orders ──► enough_new_labels ──► train_model ───────────► record_labelled_count
+ SQL, role ml_reader       >= 1000 new labels?   DockerOperator, via the   Airflow Variable: the
+        │                  no: skip the rest     host's Docker socket      count at this training
+        │                                              │ starts
+        v                                              v
+ erp-postgres:5432  <─────── livraison-net ───── livraison-express-train:local
+ (ERP read replica)                              MODEL_VERSION=2.0.0+<UTC date and time of the run>
+                                                       │ writes
+                                                       v
+                                  volume livraison-express-test_models ──> API, after a manual promotion
+```
+
+1. **Prerequisites**, at the repository root: Docker with at least 4 GB of memory; the training image, `docker compose -f docker-compose.test.yml build train`; the network `docker network create livraison-net`; the test environment running (see [Environments](#environments-local-test-production): `postgres`, `postgres-replica`, `mongodb`, `erp-simulator`), which puts the ERP read replica on that network as `erp-postgres` (read-only role `ml_reader`).
+2. **Settings:** `cd orchestration/airflow && cp .env.example .env` (the official compose file requires a `.env`). On Linux, also set `AIRFLOW_UID=$(id -u)` and `DOCKER_GID=$(stat -c %g /var/run/docker.sock)` in `.env`.
+3. **Once:** `docker compose up airflow-init` (creates Airflow's database and the admin account).
+4. **Start:** `docker compose up -d --wait` (7 containers, returns once they are healthy, about a minute).
+5. **UI:** http://127.0.0.1:8080, login `airflow` / `airflow` (`_AIRFLOW_WWW_USER_*` in `.env`). New DAGs start paused: switch `retrain_express_model` on in the UI, or run `docker compose exec airflow-worker airflow dags unpause retrain_express_model`.
+6. **Run now** instead of waiting for the schedule: the UI's Trigger button, or `docker compose exec airflow-worker airflow dags trigger retrain_express_model --conf '{"min_new_labelled_orders": 1}'`. Below the threshold, `train_model` and `record_labelled_count` are skipped and the run still succeeds. Each task's log is in the UI (run, task, Logs), the training's included.
+7. **Trained versions:** `docker run --rm -v livraison-express-test_models:/app/artifacts --entrypoint ls livraison-express-train:local /app/artifacts`.
+8. **Promote** a version (manual, never done by the DAG): read its model card, then set the API's `MODEL_VERSION` to it (e.g. `2.0.0+20261120T173815`) and restart the API.
+9. **Stop:** `docker compose down`. Adding `-v` also deletes Airflow's database (run history and the label count), so the next run trains.
+
+Settings, in `orchestration/airflow/.env` (the first three can also be changed for one run in the Trigger form):
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `MIN_NEW_LABELLED_ORDERS` | `1000` | New labelled orders since the last training needed to train (the simulator writes about one per second) |
+| `MODEL_VERSION_PREFIX` | `2.0.0` | Trained versions are `<prefix>+<UTC date and time of the run>` |
+| `TRAIN_IMAGE` | `livraison-express-train:local` | Image run by the DAG |
+| `RETRAIN_SCHEDULE` | `*/10 * * * *` | When the DAG checks the database (cron, UTC) |
+| `MODELS_VOLUME`, `MLRUNS_VOLUME` | `livraison-express-test_models`, `livraison-express-test_mlruns` | Volumes the training writes to |
+| `ML_READER_PASSWORD` | `ml_reader` | Password of the read-only role, used by the connection `erp_postgres` |
+
+**Security:** the Airflow worker mounts the host's Docker socket to start the training container, which is root-equivalent on the host. This is acceptable on a developer machine (UI on `127.0.0.1` only); in the cloud, the `KubernetesPodOperator` runs the same image without a socket (ADR-0014).
+
 ## Configuration
 
 Settings are read by `src/livraison_express/config.py` (`pydantic-settings`), in this priority order: environment variables, then a `.env` file at the project root, then the defaults below. Copy `.env.example` to `.env` to change them locally. Invalid values (e.g. `DECISION_THRESHOLD=abc`, or `ORDER_SOURCE=postgres` without `POSTGRES_DSN`) stop the program at startup with a clear message.
@@ -250,7 +293,11 @@ docker rm -f pgtest
 ├── Dockerfile                        # multi-stage: test, train and serve images
 ├── .dockerignore                     # allow-list of the files the images may contain
 ├── docker-compose.yml                # train job + API sharing a model volume
+├── docker-compose.test.yml           # test environment: ERP simulator + replica + train + API
+├── docker-compose.prod.yml           # production: released images, read replica via POSTGRES_DSN
 ├── erp-simulator/                    # course ERP simulator (TP4): fills PostgreSQL and MongoDB
+├── orchestration/airflow/            # Airflow: official compose file (changes in its header), .env.example
+│   └── dags/retrain_express_model.py # retraining DAG: count labels -> threshold -> training image
 ├── src/livraison_express/
 │   ├── __main__.py                   # entry point: python -m livraison_express
 │   ├── cli.py                        # commands serve / train / predict / predict-batch
@@ -326,6 +373,7 @@ Decisions are recorded in `docs/adr/`:
 - [ADR-0011](docs/adr/0011-canonical-vocabulary-and-source-adapters.md): the application's own category vocabulary, adjusted so every source maps into it, and one adapter per source in `infrastructure/`
 - [ADR-0012](docs/adr/0012-read-only-order-reader.md): `OrderReader` and `OrderWriter` split; `PostgresOrderReader` reads the ERP and cannot write (no `save`, read-only connection and role)
 - [ADR-0013](docs/adr/0013-per-dependency-settings.md): one setting per dependency (`ORDER_SOURCE`, `POSTGRES_DSN`) instead of the `APP_ENV` profile
+- [ADR-0014](docs/adr/0014-airflow-retraining.md): Airflow (official CeleryExecutor compose) retrains the model when enough new labelled orders arrived, by running the training image; promotion stays manual
 
 ## Status
 
@@ -343,6 +391,7 @@ Decisions are recorded in `docs/adr/`:
 - [x] Docker images (test, train, serve) and docker-compose
 - [x] Release pipeline (images published on each version tag)
 - [x] ERP data source (PostgreSQL read replica) and test / production compose files
+- [x] Retraining orchestrated by Airflow
 
 ## Limitations
 
