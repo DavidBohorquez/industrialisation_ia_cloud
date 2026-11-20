@@ -5,6 +5,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from livraison_express.core.data_quality import check_categories
 from livraison_express.core.domain import Factor, Prediction, TrainedModel
 from livraison_express.core.explanation import linear_contributions
 
@@ -81,4 +82,6 @@ class MLPredict:
             raise ValueError(f"Variables manquantes : {sorted(missing_features)}")
 
     def _probabilities(self, data: pd.DataFrame) -> np.ndarray:
+        # The API already validates categories; the CLI's JSON and CSV inputs do not.
+        check_categories(data)
         return self._model.pipeline.predict_proba(data[self._model.card.features])[:, 1]

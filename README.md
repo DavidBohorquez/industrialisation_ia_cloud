@@ -21,6 +21,14 @@ Features used by the model:
 - **Logistics:** `distance_km`, `delivery_zone`, `carrier_capacity`, `weather`
 - **Warehouse:** `stock_available`, `preparation_time_min`
 
+Categories use the application's own vocabulary; each data source is translated into it by an adapter ([ADR-0011](docs/adr/0011-canonical-vocabulary-and-source-adapters.md)):
+
+| Feature | Allowed values |
+|---|---|
+| `weather` | `normal`, `pluie`, `neige`, `orage` (storm), `vent` (strong wind, no storm) |
+| `delivery_zone` | `centre`, `banlieue` (any suburb), `rurale` |
+| `customer_type` | `particulier` (individual, B2C), `professionnel` (business, B2B) |
+
 ## Getting started
 
 Requirements: Python 3.13+.
@@ -77,13 +85,13 @@ curl -X POST http://127.0.0.1:8000/v1/predictions \
 {
   "express_eligible": true,
   "decision": "oui",
-  "probability": 0.9377,
-  "model_version": "1.0.0",
-  "prediction_timestamp": "2026-10-09T10:16:37.615812+00:00",
+  "probability": 0.932,
+  "model_version": "2.0.0",
+  "prediction_timestamp": "2026-11-20T17:26:06.836102+00:00",
   "explanation": {
-    "text": "Cette commande est éligible à la livraison express (probabilité estimée : 94 %). Ce qui joue en sa faveur : la distance (3,5 km), la capacité du transporteur (0,85) et le poids (2,4 kg).",
+    "text": "Cette commande est éligible à la livraison express (probabilité estimée : 93 %). Ce qui joue en sa faveur : la distance (3,5 km), la capacité du transporteur (0,85) et la zone de livraison (centre).",
     "source": "template",
-    "top_factors": ["distance_km", "carrier_capacity", "weight_kg"]
+    "top_factors": ["distance_km", "carrier_capacity", "delivery_zone"]
   }
 }
 ```
@@ -132,7 +140,7 @@ docker build --target test .       # run lint and tests inside the image
                                                volume      reads it read-only
 ```
 
-- **Settings** come from environment variables, e.g. `MODEL_VERSION=1.1.0 docker compose run --rm train`. Compose also reads a `.env` file next to `docker-compose.yml`; no `.env` is ever copied into an image.
+- **Settings** come from environment variables, e.g. `MODEL_VERSION=2.1.0 docker compose run --rm train`. Compose also reads a `.env` file next to `docker-compose.yml`; no `.env` is ever copied into an image.
 - **Security:** the containers run as a non-root user (uid 10001); the API has a read-only filesystem, a read-only model volume, no Linux capabilities, and only port 8000, published on `127.0.0.1`.
 - **Size:** the serving image is about 160 MB compressed (most of it scipy, pandas, numpy and scikit-learn). The final images only receive the virtual environment built in earlier stages: no pip cache, tests or build tools.
 - The CI job `docker image` runs these same steps on every pull request.
@@ -171,7 +179,7 @@ Settings are read by `src/livraison_express/config.py` (`pydantic-settings`), in
 |---|---|---|
 | `APP_ENV` | `dev` | Selects the implementations in `src/livraison_express/factory.py` |
 | `ARTIFACTS_DIR` | `<project>/artifacts` | Where model versions are stored |
-| `MODEL_VERSION` | `1.0.0` | Version to train (must be new) or to load |
+| `MODEL_VERSION` | `2.0.0` | Version to train (must be new) or to load |
 | `DECISION_THRESHOLD` | `0.5` | Probability from which an order is eligible (0 to 1) |
 | `RANDOM_STATE` | `42` | Seed for data generation, split and model |
 | `LOG_LEVEL` | `INFO` | Minimum level of log messages shown: `DEBUG`, `INFO`, `WARNING`, `ERROR` |
@@ -197,6 +205,7 @@ Settings are read by `src/livraison_express/config.py` (`pydantic-settings`), in
 ├── Dockerfile                        # multi-stage: test, train and serve images
 ├── .dockerignore                     # allow-list of the files the images may contain
 ├── docker-compose.yml                # train job + API sharing a model volume
+├── erp-simulator/                    # course ERP simulator (TP4): fills PostgreSQL and MongoDB
 ├── src/livraison_express/
 │   ├── __main__.py                   # entry point: python -m livraison_express
 │   ├── cli.py                        # commands serve / train / predict / predict-batch
@@ -264,6 +273,9 @@ Decisions are recorded in `docs/adr/`:
 - [ADR-0006](docs/adr/0006-branching-model.md): GitFlow branches, semantic version tags and Docker image tags
 - [ADR-0007](docs/adr/0007-dependency-management.md): dependency ranges, `train` extra, dev/notebook groups, `uv.lock` exported to one lock file per install profile, CI per profile
 - [ADR-0008](docs/adr/0008-docker-images.md): one multi-stage Dockerfile for the train and serve images, the model in a volume, rootless and read-only containers
+- [ADR-0009](docs/adr/0009-read-orders-from-postgres-replica.md): orders read from PostgreSQL (full history) through a read-only role on a streaming replica, never the production primary; MongoDB as fallback
+- [ADR-0010](docs/adr/0010-labels-in-the-erp-simulator.md): the order outcome (`express_eligible`) simulated in the ERP simulator with the course heuristic, revealed after a simulated delay
+- [ADR-0011](docs/adr/0011-canonical-vocabulary-and-source-adapters.md): the application's own category vocabulary, adjusted so every source maps into it, and one adapter per source in `infrastructure/`
 
 ## Status
 

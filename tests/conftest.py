@@ -29,5 +29,5 @@ def valid_order():
         "carrier_capacity": 0.9,
         "weather": "normal",
         "delivery_zone": "centre",
-        "customer_type": "premium",
+        "customer_type": "particulier",
     }

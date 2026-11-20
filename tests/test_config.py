@@ -28,7 +28,7 @@ def test_defaults_without_environment():
 
     assert settings.environment == "dev"
     assert settings.artifacts_dir == PROJECT_ROOT / "artifacts"
-    assert settings.model_version == "1.0.0"
+    assert settings.model_version == "2.0.0"
     assert settings.decision_threshold == 0.5
     assert settings.random_state == 42
     assert settings.log_level == "INFO"
@@ -50,12 +50,12 @@ def test_environment_variables_override_defaults(monkeypatch):
 
 def test_env_file_is_read_and_environment_wins(tmp_path, monkeypatch):
     env_file = tmp_path / ".env"
-    env_file.write_text("MODEL_VERSION=2.0.0\nLOG_LEVEL=DEBUG\n", encoding="utf-8")
+    env_file.write_text("MODEL_VERSION=9.9.9\nLOG_LEVEL=DEBUG\n", encoding="utf-8")
     monkeypatch.setenv("LOG_LEVEL", "WARNING")
 
     settings = Settings(_env_file=env_file)
 
-    assert settings.model_version == "2.0.0"
+    assert settings.model_version == "9.9.9"
     assert settings.log_level == "WARNING"
 
 
