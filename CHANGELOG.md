@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - The ERP simulator writes `express_eligible` into PostgreSQL and MongoDB, revealed `LABEL_DELAY_DAYS` simulated days (default 2) after each order, and resumes its simulated clock after a restart ([ADR-0010](docs/adr/0010-labels-in-the-erp-simulator.md)).
 - A read-only PostgreSQL role `ml_reader` for the application, created by the simulator's init script.
 - `erp-simulator/docker-compose.replica.yml`: a read-only PostgreSQL replica (streaming hot standby, cloned with `pg_basebackup`) for the data team, added on top of `docker-compose.erp.yml`. On the shared `livraison-net` network it answers as `erp-postgres`, and the production primary is kept off that network.
+- ADR-0009: orders are read from PostgreSQL (full history) with a read-only role on a streaming replica, never on the production primary; MongoDB is the fallback if neither can be obtained.
 
 ### Changed
 
