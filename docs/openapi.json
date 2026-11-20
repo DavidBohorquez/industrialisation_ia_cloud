@@ -3,7 +3,7 @@
   "info": {
     "title": "Express Delivery Eligibility API",
     "description": "Predicts whether an order can be delivered express (same day). Decision aid only: it does not replace business rules.",
-    "version": "1.0.0"
+    "version": "2.0.0"
   },
   "paths": {
     "/health": {
@@ -482,27 +482,30 @@
               "normal",
               "pluie",
               "neige",
-              "orage"
+              "orage",
+              "vent"
             ],
-            "title": "Weather"
+            "title": "Weather",
+            "description": "Weather for the delivery. 'vent' = strong wind without a storm, 'orage' = storm."
           },
           "delivery_zone": {
             "type": "string",
             "enum": [
               "centre",
-              "proche_banlieue",
               "banlieue",
               "rurale"
             ],
-            "title": "Delivery Zone"
+            "title": "Delivery Zone",
+            "description": "'banlieue' = any suburb, near or far."
           },
           "customer_type": {
             "type": "string",
             "enum": [
-              "standard",
-              "premium"
+              "particulier",
+              "professionnel"
             ],
-            "title": "Customer Type"
+            "title": "Customer Type",
+            "description": "'particulier' = individual customer (B2C), 'professionnel' = business (B2B)."
           }
         },
         "additionalProperties": false,
@@ -525,7 +528,7 @@
         "examples": [
           {
             "carrier_capacity": 0.85,
-            "customer_type": "premium",
+            "customer_type": "particulier",
             "day_of_week": 2,
             "delivery_zone": "centre",
             "distance_km": 3.5,

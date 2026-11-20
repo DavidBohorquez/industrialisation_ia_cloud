@@ -28,6 +28,23 @@ def test_negative_distance_is_rejected(orders):
         validate_dataset(invalid)
 
 
+def test_value_outside_the_canonical_vocabulary_is_rejected(orders):
+    # e.g. an adapter that forgot to translate an ERP value
+    invalid = orders.copy()
+    invalid.loc[0, "delivery_zone"] = "suburb"
+
+    with pytest.raises(ValueError, match=r"delivery_zone: \['suburb'\]"):
+        validate_dataset(invalid)
+
+
+def test_missing_category_is_accepted(orders):
+    # The pipeline imputes missing categories; only wrong values are rejected.
+    with_missing = orders.copy()
+    with_missing.loc[0, "weather"] = None
+
+    validate_dataset(with_missing)
+
+
 def test_cleaning_fixes_duplicates_and_invalid_rows(orders):
     dirty = pd.concat([orders, orders.iloc[[0]]], ignore_index=True)
     dirty.loc[5, "carrier_capacity"] = 3

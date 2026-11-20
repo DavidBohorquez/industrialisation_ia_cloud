@@ -61,7 +61,23 @@ def test_unknown_category_lists_allowed_values(client, valid_order):
     response = client.post("/v1/predictions", json={**valid_order, "weather": "brouillard"})
 
     assert response.status_code == 422
-    assert "'normal', 'pluie', 'neige' or 'orage'" in response.json()["detail"][0]["msg"]
+    assert "'normal', 'pluie', 'neige', 'orage' or 'vent'" in response.json()["detail"][0]["msg"]
+
+
+@pytest.mark.parametrize(
+    ("field", "old_value"),
+    [
+        ("delivery_zone", "proche_banlieue"),
+        ("customer_type", "standard"),
+        ("customer_type", "premium"),
+    ],
+)
+def test_values_removed_in_v2_are_rejected(client, valid_order, field, old_value):
+    # Breaking change of API 2.0.0 (ADR-0011): no silent translation of the old vocabulary.
+    response = client.post("/v1/predictions", json={**valid_order, field: old_value})
+
+    assert response.status_code == 422
+    assert error_fields(response) == [field]
 
 
 def test_unknown_field_is_rejected(client, valid_order):

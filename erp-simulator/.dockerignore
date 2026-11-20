@@ -1,0 +1,5 @@
+# Liste blanche : le contexte de build ne contient que ce que le Dockerfile copie.
+*
+
+!requirements-databases.txt
+!src/erp_simulator/*.py

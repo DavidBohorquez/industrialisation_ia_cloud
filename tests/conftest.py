@@ -1,8 +1,11 @@
+import os
+
 import pandas as pd
 import pytest
 
 from livraison_express.core.learning.ml_trainer import MLTrainer
 from livraison_express.infrastructure.dev.order_generator import generate_orders
+from tests.erp_support import ErpTestTable
 
 
 @pytest.fixture(scope="session")
@@ -29,5 +32,22 @@ def valid_order():
         "carrier_capacity": 0.9,
         "weather": "normal",
         "delivery_zone": "centre",
-        "customer_type": "premium",
+        "customer_type": "particulier",
     }
+
+
+@pytest.fixture(scope="session")
+def postgres_dsn():
+    """Admin connection to a test server. Tests that use it carry the `postgres` marker."""
+    dsn = os.environ.get("TEST_POSTGRES_DSN")
+    if not dsn:
+        pytest.skip("TEST_POSTGRES_DSN is not set: no PostgreSQL server to test against")
+    return dsn
+
+
+@pytest.fixture
+def erp_table(postgres_dsn):
+    """An empty ERP orders table in a schema of its own, dropped after the test."""
+    table = ErpTestTable.create(postgres_dsn)
+    yield table
+    table.drop()

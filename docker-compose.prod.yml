@@ -1,0 +1,69 @@
+# Production environment: the application only (TP4 deliverable 5).
+#
+# No simulator and no database here: the orders come from the company's PostgreSQL read
+# replica (ADR-0009), through the read-only role its administrator provides. The images are
+# the ones the release workflow publishes on ghcr.io (ADR-0006, ADR-0008): nothing is built.
+#
+#   cp .env.prod.example .env.prod             fill it in, never commit it
+#   docker compose -f docker-compose.prod.yml --env-file .env.prod run --rm train
+#   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --wait api
+#
+# A new model version is trained with `run --rm -e MODEL_VERSION=<new> train`; serving it is a
+# separate, deliberate step: change MODEL_VERSION in .env.prod and `up -d api` again.
+# Scheduled retraining is the orchestrator's job (orchestration/airflow, ADR-0014).
+name: livraison-express-prod
+
+x-hardening: &hardening
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "5"
+
+services:
+  api:
+    <<: *hardening
+    image: ghcr.io/davidbohorquez/industrialisation_ia_cloud:${APP_VERSION:?set APP_VERSION, the released version to run}
+    ports:
+      # Loopback only: the company's reverse proxy terminates TLS in front of it.
+      - "127.0.0.1:${API_PORT:-8000}:8000"
+    environment:
+      MODEL_VERSION: ${MODEL_VERSION:?set MODEL_VERSION, the model version to serve}
+      DECISION_THRESHOLD: ${DECISION_THRESHOLD:-0.5}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    volumes:
+      - models:/app/artifacts:ro
+    read_only: true
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1g
+
+  train:
+    <<: *hardening
+    image: ghcr.io/davidbohorquez/industrialisation_ia_cloud-train:${APP_VERSION:?set APP_VERSION, the released version to run}
+    # Not started by `up`: a one-off job, `run --rm train`.
+    profiles: [train]
+    environment:
+      ORDER_SOURCE: postgres
+      # The read replica, never the production primary (ADR-0009).
+      POSTGRES_DSN: ${POSTGRES_DSN:?set POSTGRES_DSN to the read replica, read-only role}
+      MODEL_VERSION: ${MODEL_VERSION:?set MODEL_VERSION, the model version to train}
+      RANDOM_STATE: ${RANDOM_STATE:-42}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    volumes:
+      - models:/app/artifacts
+      - mlruns:/app/mlruns
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2g
+
+volumes:
+  models:
+  mlruns:

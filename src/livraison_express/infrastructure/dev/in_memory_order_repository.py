@@ -23,14 +23,15 @@ class InMemoryOrderRepository(OrderRepository):
         return dict(order) if order is not None else None
 
     def get_all(self) -> list[dict[str, Any]]:
-        return [dict(order) for order in self._orders.values()]
+        return [dict(order) for order in self._sorted()]
 
     def count(self) -> int:
         return len(self._orders)
 
     def get_training_data(self) -> list[dict[str, Any]]:
-        return [
-            dict(order)
-            for order in self._orders.values()
-            if order.get(TARGET_COLUMN) is not None
-        ]
+        return [dict(order) for order in self._sorted() if order.get(TARGET_COLUMN) is not None]
+
+    def _sorted(self) -> list[dict[str, Any]]:
+        # Sorted by id like every OrderReader: insertion order would make the training set
+        # depend on how the store was filled.
+        return [self._orders[order_id] for order_id in sorted(self._orders)]
