@@ -22,7 +22,7 @@ class Settings(BaseSettings):
 
     environment: str = Field(default="dev", validation_alias="APP_ENV")
     artifacts_dir: Path = PROJECT_ROOT / "artifacts"
-    model_version: str = "1.0.0"
+    model_version: str = "2.0.0"
     decision_threshold: float = Field(default=0.5, ge=0, le=1)
     random_state: int = 42
     log_level: LogLevel = "INFO"

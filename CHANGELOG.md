@@ -17,6 +17,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- **BREAKING:** order categories use the application's canonical vocabulary, adjusted so that every data source, starting with the ERP, can be translated into it ([ADR-0011](docs/adr/0011-canonical-vocabulary-and-source-adapters.md)). The HTTP contract (`API_VERSION`, `docs/openapi.json`) is now 2.0.0; routes keep the `/v1` prefix. A request with a removed value gets a `422` listing the allowed values. Migration for API clients:
+
+  | Field | Old value | New value |
+  |---|---|---|
+  | `weather` | `normal`, `pluie`, `neige`, `orage` | unchanged, and `vent` is new (strong wind without a storm) |
+  | `delivery_zone` | `proche_banlieue` | `banlieue` |
+  | `delivery_zone` | `centre`, `banlieue`, `rurale` | unchanged (`banlieue` now covers every suburb) |
+  | `customer_type` | `standard`, `premium` | `particulier` (individual) or `professionnel` (business). No automatic mapping: a service tier does not say what the customer is. |
+
+- **BREAKING:** the default `MODEL_VERSION` is 2.0.0 (`config.py`, `.env.example`, `docker-compose.yml`), so that this version never loads a model trained on the old vocabulary (1.0.0). Train 2.0.0 before serving: `python -m livraison_express train` or `docker compose run --rm train`.
+- The dev order generator uses the canonical values with the ERP simulator's penalties (`vent` 0.20, `banlieue` 0.175, `professionnel` +0.15). Numeric distributions and the scoring formula are unchanged; the notebook keeps the original vocabulary.
 - README: `docker compose up -d --wait api` returns once the API is healthy, and the `docker run` instructions show how to wait for the `(healthy)` status before calling the API.
 
 ## [1.1.0] - 2026-11-17

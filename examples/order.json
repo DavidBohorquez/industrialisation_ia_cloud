@@ -10,5 +10,5 @@
   "carrier_capacity": 0.85,
   "weather": "normal",
   "delivery_zone": "centre",
-  "customer_type": "premium"
+  "customer_type": "particulier"
 }
