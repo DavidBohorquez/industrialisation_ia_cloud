@@ -197,6 +197,7 @@ Settings are read by `src/livraison_express/config.py` (`pydantic-settings`), in
 ├── Dockerfile                        # multi-stage: test, train and serve images
 ├── .dockerignore                     # allow-list of the files the images may contain
 ├── docker-compose.yml                # train job + API sharing a model volume
+├── erp-simulator/                    # course ERP simulator (TP4): fills PostgreSQL and MongoDB
 ├── src/livraison_express/
 │   ├── __main__.py                   # entry point: python -m livraison_express
 │   ├── cli.py                        # commands serve / train / predict / predict-batch

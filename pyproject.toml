@@ -40,7 +40,7 @@ notebook = ["jupyter>=1.1,<2", "matplotlib>=3.11,<4", "seaborn>=0.13,<0.14"]
 where = ["src"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "erp-simulator/tests"]
 addopts = ["--strict-markers"]
 markers = ["training: needs the train extra (mlflow); skipped by the serving CI job"]
 

@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- `erp-simulator/`: the course ERP simulator (TP4) that fills PostgreSQL and MongoDB, with the fixes it needed to build and start (listed in its README).
+- `erp-simulator/src/erp_simulator/outcome.py`: simulates the `express_eligible` outcome with the course heuristic, translated to the ERP's values (assumptions in the simulator's README). Not written to the databases yet. Its tests run with the rest of the suite.
+
 ### Changed
 
 - README: `docker compose up -d --wait api` returns once the API is healthy, and the `docker run` instructions show how to wait for the `(healthy)` status before calling the API.

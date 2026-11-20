@@ -21,6 +21,41 @@ Chaque écart avec le sujet est listé ici.
 - `storage.py` : une ligne vide en trop retirée (règle `ruff` du dépôt), rien d'autre.
 - Les fichiers `infrastructure/implementation/*_order_repository.py` cités plus bas ne
   font pas partie du sujet : c'est l'exercice du TP, réalisé dans l'application.
+- **`outcome.py` ajouté** : simule la cible `express_eligible` (section suivante).
+  Pas encore branché au simulateur.
+
+## Cible `express_eligible` (`outcome.py`)
+
+Le sujet ne générait pas la cible : le professeur a confirmé l'oubli (2026-11-20) et
+indiqué l'heuristique de génération du cours (notebook, cellule 8). `outcome.py` la
+reprend avec les mêmes coefficients, la même sigmoïde et le même tirage (Bernoulli de
+probabilité p), traduite dans le vocabulaire de l'ERP :
+
+| Champ ERP | Valeur → pénalité ou bonus | Choix |
+|---|---|---|
+| `weather` | clear 0 · rain 0.10 · snow 0.25 · wind 0.20 | `wind` entre la pluie (0.10) et l'orage (0.30) |
+| `delivery_zone` | centre 0 · suburb 0.175 · rural 0.45 | `suburb` au milieu de proche banlieue (0.10) et banlieue (0.25) |
+| `customer_type` | individual 0 · business +0.15 | même bonus que `premium` |
+| `carrier_capacity` | part libre = valeur / 50 | hypothèse : capacité libre sur un maximum de 50 |
+
+Règles :
+
+- même commande, même résultat, dans n'importe quel processus (graine `outcome:<order_id>`) ;
+- un tirage aléatoire et non un seuil : sinon la cible serait une fonction exacte des
+  variables et un modèle atteindrait ~100 % sans rien apprendre d'utile ;
+- `preparation_time_min` à `NULL` (avant juillet 2017) : pas de résultat (`None`),
+  car l'imputer fabriquerait une étiquette ;
+- `weekend` à `NULL` (avant juillet 2015) : calculé depuis `day_of_week` ;
+- valeur inconnue (par exemple `pluie`) ou capacité hors de 0-50 : `ValueError`.
+
+Avec les distributions de l'ERP, environ 34 % des commandes sont éligibles, contre 79 %
+avec les données du notebook : les distances y suivent une loi uniforme de 1 à 40 km.
+
+**Pas encore branché** : `outcome.py` n'écrit rien en base. La colonne
+`express_eligible` et sa révélation avec une horloge simulée (`LABEL_DELAY_DAYS`) sont
+l'étape suivante.
+
+Tests : `pytest erp-simulator/tests` depuis la racine du dépôt (lancés aussi par la CI).
 
 À savoir : `LIVE_ORDER_LIMIT` est le **dernier numéro de séquence** du flux live, pas un
 nombre de commandes. Avec l'historique par défaut (10 000 + 1 000 commandes), le flux
